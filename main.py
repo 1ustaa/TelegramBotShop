@@ -18,13 +18,22 @@ load_dotenv()
 bot = Bot(os.getenv("TELEGRAM_TOKEN"), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
 
+# @dp.message(Command("start"))
+# async def cmd_start(message: types.Message):
+#     models = session.query(Product).filter_by(model="iPhone 15 Pro").all()
+#     iphones = ""
+#     for model in models:
+#         iphones = iphones + model.model + "\n"
+#     await message.answer(iphones)
+
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    models = session.query(Product).filter_by(model="iPhone 15 Pro").all()
-    iphones = ""
-    for model in models:
-        iphones = iphones + model.model + "\n"
-    await message.answer(iphones)
+    kb = [
+        [types.KeyboardButton(text="Playstation")],
+        [types.KeyboardButton(text="XBOX")]
+    ]
+    keyboard = types.ReplyKeyboardMarkup(keyboard=kb)
+    await message.answer("Какая консоль?", reply_markup=keyboard)
 
 @dp.message(Command("test1"))
 async def cmd_test1(message: types.Message):
