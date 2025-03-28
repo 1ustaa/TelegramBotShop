@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import os
+
+from aiogram.filters import CommandObject
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters.command import Command
@@ -9,60 +11,38 @@ from sqlalchemy.testing.suite.test_reflection import users
 from telegram.constants import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from model import session, Product
+import random
 
 
 #Логирование
 logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
-bot = Bot(os.getenv("TELEGRAM_TOKEN"), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+bot = Bot(os.getenv("TELEGRAM_TOKEN"))
 dp = Dispatcher()
 
-# @dp.message(Command("start"))
-# async def cmd_start(message: types.Message):
-#     models = session.query(Product).filter_by(model="iPhone 15 Pro").all()
-#     iphones = ""
-#     for model in models:
-#         iphones = iphones + model.model + "\n"
-#     await message.answer(iphones)
+@dp.message(F.text == "/start")
+async def start(message: types.Message):
+    await message.answer(f"Hello, {message.from_user.first_name}")
 
-@dp.message(Command("start"))
-async def cmd_start(message: types.Message):
-    kb = [
-        [types.KeyboardButton(text="Playstation")],
-        [types.KeyboardButton(text="XBOX")]
-    ]
-    keyboard = types.ReplyKeyboardMarkup(keyboard=kb)
-    await message.answer("Какая консоль?", reply_markup=keyboard)
+@dp.message(Command(commands=["rn", "random-number"]))
+async def random_number(message: types.Message, command: CommandObject):
+    try:
+        if command.args is None:
+            await message.answer(f"need 1 argument")
+        else:
+            a, b = [int(n) for n in command.args.split("-")]
+            rn_number = random.randint(a, b)
+            await message.answer(f"{rn_number}")
+    except ValueError:
+        await message.answer("value error, integer need")
 
-@dp.message(Command("test1"))
-async def cmd_test1(message: types.Message):
-    await message.answer("test1")
-
-@dp.message(Command("test2"))
-async def cmd_test2(message: types.Message):
-    await message.answer("test2")
-
-@dp.message(Command("dice"))
-async def cmd_dice(message: types.Message):
-    await message.answer_dice(emoji="🎲")
-
-@dp.message(F.text, Command("text"))
-async def any_message(message: types.Message):
-
-    await message.answer(
-        "Hello <u>world</u>"
-    )
-    await message.answer(
-        "Hello <u>world</u>",
-        parse_mode=None
-    )
-
-@dp.message(F.text, Command("hello"))
-async def say_hello(message: types.Message):
-    await message.reply(f"Hello {message.from_user.username}")
+@dp.message()
+async def echo(message: types.Message):
+    await message.answer("I dont understand you")
 
 async def main():
+    await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
