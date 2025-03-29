@@ -2,44 +2,66 @@ import asyncio
 import logging
 import os
 
-from aiogram.filters import CommandObject
-from dotenv import load_dotenv
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters.command import Command
-from aiogram import F
-from sqlalchemy.testing.suite.test_reflection import users
-from telegram.constants import ParseMode
-from aiogram.client.default import DefaultBotProperties
-from model import session, Product
-import random
+from contextlib import suppress
 
+from aiogram.client.default import DefaultBotProperties
+from dotenv import load_dotenv
+from aiogram.filters import CommandObject
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters.command import Command, CommandStart
+from aiogram.exceptions import TelegramBadRequest
+
+import keybords
 
 #Логирование
 logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
-bot = Bot(os.getenv("TELEGRAM_TOKEN"))
+bot = Bot(os.getenv("TELEGRAM_TOKEN"), default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
-@dp.message(F.text == "/start")
-async def start(message: types.Message):
-    await message.answer(f"Hello, {message.from_user.first_name}")
+smiles = [
+    ["🥑", "Avocado"],
+    ["🌊", "Splash"],
+    ["🌪️", "Tornado"],
+    ["🏎️", "Car"]
+]
 
-@dp.message(Command(commands=["rn", "random-number"]))
-async def random_number(message: types.Message, command: CommandObject):
-    try:
-        if command.args is None:
-            await message.answer(f"need 1 argument")
-        else:
-            a, b = [int(n) for n in command.args.split("-")]
-            rn_number = random.randint(a, b)
-            await message.answer(f"{rn_number}")
-    except ValueError:
-        await message.answer("value error, integer need")
+@dp.callback_query(keybords.Pagination.filter(F.action.in_(["prev", "next"])))
+async def pagination_handler(call: types.CallbackQuery, callback_data: keybords.Pagination):
+    page_num = int(callback_data.page)
+    page = page_num - 1 if page_num > 0 else 0
+
+    if callback_data.action == "next":
+        page = page_num + 1 if page_num < (len(smiles) - 1) else page_num
+
+    with suppress(TelegramBadRequest):
+        await call.message.edit_text(
+            f"{smiles[page][0]} <b>{smiles[page][1]}</b>",
+            reply_markup=keybords.paginator(page)
+        )
+    await call.answer()
+
+@dp.message(CommandStart())
+async def cmd_start(message: types.Message):
+    await message.answer("Hello AIOgram 3.x", reply_markup=keybords.main_kb)
 
 @dp.message()
 async def echo(message: types.Message):
-    await message.answer("I dont understand you")
+    msg = message.text.lower()
+
+    if msg == "ссылки":
+        await message.answer("Вот ваши ссылки", reply_markup=keybords.links_kb)
+    elif msg == "спец. кнопки":
+        await message.answer("Спец кнопки:", reply_markup=keybords.spec_kb)
+    elif msg == "калькулятор":
+        await  message.answer("Калькулятор", reply_markup=keybords.calc_kb())
+    elif msg == "назад":
+        await message.answer("Главное меню", reply_markup=keybords.main_kb)
+    elif msg == "смайлики":
+        await message.answer(f"{smiles[0][0]} <b>{smiles[0][1]}</b>", reply_markup=keybords.paginator())
+    else:
+        await message.answer("I dont understand you")
 
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
