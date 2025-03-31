@@ -3,7 +3,7 @@ import logging
 import os
 from aiogram.client.default import DefaultBotProperties
 from aiogram import Bot, Dispatcher
-from handlers import bot_mesages, user_commands
+from handlers import bot_mesages, user_commands, group_games
 from callbacks import pagination
 
 from config_reader import config
@@ -17,7 +17,8 @@ async def main():
     dp.include_routers(
         user_commands.router,
         pagination.router,
-        bot_mesages.router
+        group_games.router,
+        bot_mesages.router,
     )
 
     await bot.delete_webhook(drop_pending_updates=True)
