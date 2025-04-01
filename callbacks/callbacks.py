@@ -21,3 +21,9 @@ async def pagination_handler(call: types.CallbackQuery, callback_data: keyboards
             reply_markup=keyboards.fabrics.paginator(page)
         )
     await call.answer()
+
+@router.callback_query(F.data.startswith("categories_"))
+async def process_category_selection(callback: types.CallbackQuery):
+    category_id = int(callback.data.split("_")[1])
+    await callback.message.edit_text("Выберите производителя", reply_markup=keyboards.builders.sub_categories_kb(category_id))
+    await callback.answer()

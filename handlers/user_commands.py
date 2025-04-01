@@ -1,13 +1,14 @@
+from email.policy import default
+
 from aiogram import types, Router
 from aiogram.filters.command import CommandStart, Command
-from keyboards import reply, builders
+from keyboards import inline, builders
+from aiogram.client.default import DefaultBotProperties
 
 router = Router()
 
 @router.message(CommandStart())
 async def cmd_start(message: types.Message):
-    await message.answer("Hello AIOgram 3.x", reply_markup=reply.main)
-
-@router.message(Command("bot-test"))
-async def show_cata(message: types.Message):
-    await  message.answer("Выберите категорию товара", reply_markup=builders.categories_kb())
+    await message.answer(
+        "<b>Добро пожаловать</b>\nВыберите категорию, чтобы посмотреть доступные модели:",
+        reply_markup=builders.categories_kb())
