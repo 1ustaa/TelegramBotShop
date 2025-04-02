@@ -3,6 +3,9 @@ from aiogram.exceptions import TelegramBadRequest
 from contextlib import suppress
 import keyboards
 from data.subloader import get_json
+from states.states import ChoseDevice
+from aiogram.fsm.context import FSMContext
+from aiogram.filters import StateFilter
 
 router = Router()
 
@@ -22,8 +25,23 @@ async def pagination_handler(call: types.CallbackQuery, callback_data: keyboards
         )
     await call.answer()
 
-@router.callback_query(F.data.startswith("categories_"))
-async def process_category_selection(callback: types.CallbackQuery):
+@router.callback_query(F.data.startswith("categories_"), StateFilter(None))
+async def process_category_selection(callback: types.CallbackQuery, state: FSMContext):
     category_id = int(callback.data.split("_")[1])
-    await callback.message.edit_text("Выберите производителя", reply_markup=keyboards.builders.sub_categories_kb(category_id))
+    await callback.message.edit_text(
+        "Выберите производителя", reply_markup=keyboards.builders.sub_categories_kb(category_id)
+    )
     await callback.answer()
+    await state.set_state(ChoseDevice.choosing_category)
+
+@router.callback_query(F.data.startswith("sub_categories_"), ChoseDevice.choosing_category)
+async def process_category_selection(callback: types.CallbackQuery, state: FSMContext):
+    category_id = int(callback.data.split("_")[1])
+    await state.update_data(chosen_category=category_id)
+    await callback.message.edit_text(
+        "Выберите производителя", reply_markup=keyboards.builders.sub_categories_kb(category_id)
+    )
+    await callback.answer()
+    await state.set_state(ChoseDevice.choosing_manufacturer)
+
+

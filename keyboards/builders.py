@@ -1,5 +1,5 @@
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
-from data.model import session, Category
+from data.model import session, Category, Product
 
 def categories_kb():
     builder = InlineKeyboardBuilder()
@@ -11,6 +11,13 @@ def categories_kb():
 def sub_categories_kb(category_id):
     builder = InlineKeyboardBuilder()
     categories = session.query(Category).filter_by(parent_id=category_id).all()
+    [builder.button(text=category.name, callback_data=f"sub_categories_{category.id}") for category in categories]
+    builder.adjust(2)
+    return builder.as_markup()
+
+def products_kb(category_id):
+    builder = InlineKeyboardBuilder()
+    categories = session.query(Product).filter_by(parent_id=category_id).all()
     [builder.button(text=category.name, callback_data=f"sub_categories_{category.id}") for category in categories]
     builder.adjust(2)
     return builder.as_markup()
