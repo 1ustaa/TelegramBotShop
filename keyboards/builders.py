@@ -1,5 +1,6 @@
-from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder, InlineKeyboardButton
-from data.model import session, Category, Product, Manufacturer, manufacturer_category, show_products, count_products
+from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
+from data.model import session, Category, Manufacturer, manufacturer_category, show_products, count_products
+from keyboards.inline import main_menu_button, back_button
 
 def categories_kb():
     builder = InlineKeyboardBuilder()
@@ -15,6 +16,8 @@ def manufacturer_kb(category_id):
     for manufacturer in manufacturers:
         builder.button(text=manufacturer.name, callback_data=f"manufacturer_{manufacturer.id}")
     builder.adjust(2)
+    builder.row(back_button())
+    builder.row(main_menu_button())
     return builder.as_markup()
 
 def devices_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size: int = 5):
@@ -38,14 +41,14 @@ def devices_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size:
     if page > 0:
         pagination_buttons.append(
             InlineKeyboardButton(
-                text="⬅️ Назад",
+                text="⬅️",
                 callback_data=f"devices_prev_{category_id}_{manufacturer_id}_{page - 1}"
             )
         )
     if (page + 1) * page_size < total_devices:
         pagination_buttons.append(
             InlineKeyboardButton(
-                text="Вперед ➡️",
+                text="➡️",
                 callback_data=f"devices_next_{category_id}_{manufacturer_id}_{page + 1}"
             )
         )
@@ -53,5 +56,6 @@ def devices_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size:
     builder.adjust(1)
     if pagination_buttons:
         builder.row(*pagination_buttons)
-
+    builder.row(back_button())
+    builder.row(main_menu_button())
     return builder.as_markup()

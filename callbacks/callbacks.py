@@ -2,6 +2,7 @@ from aiogram import F, types, Router
 import keyboards
 from states.states import ChoseDevice
 from aiogram.fsm.context import FSMContext
+from aiogram.filters import StateFilter
 
 router = Router()
 
@@ -40,4 +41,12 @@ async def process_devices_pagination(callback: types.CallbackQuery, state: FSMCo
         "Выберите устройство",
         reply_markup=keyboards.builders.devices_kb(category_id, manufacturer_id, page)
     )
+    await callback.answer()
+
+@router.callback_query(F.data == "main_menu", StateFilter("*"))
+async def return_main_menu(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.edit_text(
+        "🏠 Главное меню. Пожалуйста, выберите категорию:",
+        reply_markup=keyboards.builders.categories_kb())
+    await state.set_state(ChoseDevice.choosing_category)
     await callback.answer()
