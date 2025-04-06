@@ -2,6 +2,7 @@ from aiogram import F, types, Router
 from aiogram.exceptions import TelegramBadRequest
 from contextlib import suppress
 import keyboards
+from data.model import manufacturer_category
 from data.subloader import get_json
 from states.states import ChoseDevice
 from aiogram.fsm.context import FSMContext
@@ -49,6 +50,16 @@ async def process_device_selection(callback: types.CallbackQuery, state: FSMCont
     await state.set_state(ChoseDevice.choosing_device)
     await callback.answer()
 
+@router.callback_query(F.data.startswith("devices_"), ChoseDevice.choosing_device)
+async def process_devices_pagination(callback: types.CallbackQuery, state: FSMContext):
+    data_parts = callback.data.split("_")
+    action = data_parts[1]
+    category_id = int(data_parts[2])
+    manufacturer_id = int(data_parts[3])
+    page = int(data_parts[4])
 
-
-
+    await callback.message.edit_text(
+        "Выберите устройство",
+        reply_markup=keyboards.builders.devices_kb(category_id, manufacturer_id, page)
+    )
+    await callback.answer()

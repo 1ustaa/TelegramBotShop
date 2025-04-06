@@ -1,6 +1,6 @@
 import csv
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, select, Table
-from sqlalchemy.orm import sessionmaker, relationship, declarative_base, outerjoin
+from sqlalchemy.orm import sessionmaker, relationship, declarative_base
 from config_reader import config
 
 Base = declarative_base()
@@ -61,14 +61,20 @@ class ProductVariant(Base):
 
 Base.metadata.create_all(engine)
 
-def show_products(category_id: int, manufacturer_id: int):
+def show_products(category_id: int, manufacturer_id: int, page: int, page_size: int):
     return session.query(Product, ProductVariant)\
         .outerjoin(ProductVariant, Product.id == ProductVariant.product_id)\
         .filter(
         Product.category_id == category_id,
         Product.manufacturer_id == manufacturer_id
-    ).all()
+    ).order_by(Product.name).offset(page * page_size).limit(page_size).all()
 
+def count_products(category_id: int, manufacturer_id: int):
+     return session.query(Product, ProductVariant).outerjoin(ProductVariant, Product.id == ProductVariant.product_id)\
+         .filter(
+         Product.category_id == category_id,
+         Product.manufacturer_id == manufacturer_id
+     ).count()
 
 def import_from_csv(file_path):
     with open(file_path, mode='r', encoding='utf-8') as file:

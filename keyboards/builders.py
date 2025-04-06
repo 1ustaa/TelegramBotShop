@@ -1,5 +1,5 @@
-from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
-from data.model import session, Category, Product, Manufacturer, manufacturer_category, show_products
+from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder, InlineKeyboardButton
+from data.model import session, Category, Product, Manufacturer, manufacturer_category, show_products, count_products
 
 def categories_kb():
     builder = InlineKeyboardBuilder()
@@ -17,9 +17,9 @@ def manufacturer_kb(category_id):
     builder.adjust(2)
     return builder.as_markup()
 
-def devices_kb(category_id, manufacturer_id):
+def devices_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size: int = 5):
     builder = InlineKeyboardBuilder()
-    devices = show_products(category_id, manufacturer_id)
+    devices = show_products(category_id, manufacturer_id, page, page_size)
     for device, variant in devices:
         text = device.name
         if variant:
@@ -30,8 +30,28 @@ def devices_kb(category_id, manufacturer_id):
                 spec.append(f"{variant.memory}GB")
             if variant.price:
                 spec.append(f"{variant.price} руб.")
-            text += f" ({' '.join(spec)})"
-
+            text += f" {' '.join(spec)}"
         builder.button(text=text, callback_data=f"variant_{variant.id}" if variant else f"device_{device.id}")
+
+    total_devices = count_products(category_id, manufacturer_id)
+    pagination_buttons = []
+    if page > 0:
+        pagination_buttons.append(
+            InlineKeyboardButton(
+                text="⬅️ Назад",
+                callback_data=f"devices_prev_{category_id}_{manufacturer_id}_{page - 1}"
+            )
+        )
+    if (page + 1) * page_size < total_devices:
+        pagination_buttons.append(
+            InlineKeyboardButton(
+                text="Вперед ➡️",
+                callback_data=f"devices_next_{category_id}_{manufacturer_id}_{page + 1}"
+            )
+        )
+
     builder.adjust(1)
+    if pagination_buttons:
+        builder.row(*pagination_buttons)
+
     return builder.as_markup()
