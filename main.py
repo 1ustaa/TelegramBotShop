@@ -2,7 +2,7 @@ import asyncio
 import logging
 from aiogram.client.default import DefaultBotProperties
 from aiogram import Bot, Dispatcher
-from handlers import bot_mesages, user_commands, group_games, usernames
+from handlers import bot_mesages, user_commands
 from callbacks import callbacks
 
 from config_reader import config
@@ -16,8 +16,6 @@ async def main():
     dp.include_routers(
         user_commands.router,
         callbacks.router,
-        group_games.router,
-        usernames.router,
         bot_mesages.router,
     )
 
