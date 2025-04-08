@@ -1,29 +1,43 @@
-import csv
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, select, Table
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, select, Table, DateTime, BigInteger, UniqueConstraint
+from sqlalchemy.types import DECIMAL
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base
-from config_reader import config
+# from config_reader import config
+from datetime import datetime
 
 Base = declarative_base()
 
-engine = create_engine(config.db_link.get_secret_value())
+engine = create_engine('sqlite:///shop.db') #config.db_link.get_secret_value()
 Session = sessionmaker(bind=engine)
 session = Session()
 
 #Таблица Категория
-class Category(Base):
+class Categories(Base):
     __tablename__ = 'categories'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False, unique=True)
-    products = relationship("Product", back_populates="category")
-    manufacturers = relationship("Manufacturer", secondary="manufacturer_category", back_populates="categories")
+    name = Column(String(100), nullable=False, unique=True)
+    models = relationship("Models", back_populates="categories")
+    manufacturers = relationship("Manufacturers", secondary="manufacturer_category", back_populates="categories")
 
 #Таблица Производитель
-class Manufacturer(Base):
+class Manufacturers(Base):
     __tablename__ = 'manufacturers'
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, unique=True, nullable=False)
-    products = relationship("Product", back_populates="manufacturer")
-    categories = relationship("Category", secondary="manufacturer_category", back_populates="manufacturers")
+    models = relationship("Models", back_populates="manufacturer")
+    categories = relationship("Categories", secondary="manufacturer_category", back_populates="manufacturers")
+
+class Models(Base):
+    __tablename__ = 'models'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+
+    category_id = Column(Integer, ForeignKey('categories.id'))
+    categories = relationship("Categories", back_populates="models")
+
+    manufacturer_id = Column(Integer, ForeignKey('manufacturers.id'))
+    manufacturer = relationship("Manufacturers", back_populates="models")
+
+    devices = relationship("Devices", back_populates="model")
 
 manufacturer_category = Table(
     "manufacturer_category",
@@ -33,96 +47,139 @@ manufacturer_category = Table(
 )
 
 #Таблица Устройство
-class Product(Base):
-    __tablename__ = 'products'
+class Devices(Base):
+    __tablename__ = 'devices'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False)
 
-    category_id = Column(Integer, ForeignKey('categories.id'))
-    category = relationship("Category", back_populates="products")
+    model_id = Column(Integer, ForeignKey('models.id'))
+    model = relationship("Models", back_populates="devices")
 
-    manufacturer_id = Column(Integer, ForeignKey('manufacturers.id'))
-    manufacturer = relationship("Manufacturer", back_populates="products")
+    description = Column(String(500), nullable=True)
+    image = Column(String(500), nullable=True)
 
-    variants = relationship("ProductVariant", back_populates="product")
+    variants = relationship("DeviceVariants", back_populates="products")
 
 
 #Таблица характеристика устройства
-class ProductVariant(Base):
-    __tablename__ = 'product_variants'
+class DeviceVariants(Base):
+    __tablename__ = 'device_variants'
+    __table_args__ = (UniqueConstraint('sim', 'color', 'memory', name='uix_device_variant'),)
     id = Column(Integer, primary_key=True, autoincrement=True)
-    color = Column(String)
-    memory = Column(Integer)
-    price = Column(Float, nullable=False)
+    sim = Column(String(20), nullable=True)
+    color = Column(String(100), nullable=True)
+    memory = Column(String(100), nullable=True)
+    price = Column(DECIMAL(12, 2), nullable=False)
 
-    product_id = Column(Integer, ForeignKey('products.id'))
-    product = relationship("Product", back_populates="variants")
+    product_id = Column(Integer, ForeignKey('devices.id'))
+    products = relationship("Devices", back_populates="variants")
 
+class Customers(Base):
+    __tablename__ = "customers"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(100), nullable=False)
+    telegram_id = Column(BigInteger, unique=True)
+
+    cart_items = relationship("CartItems", back_populates="customer")
+    orders = relationship("Orders", back_populates="customer")
+
+class CartItems(Base):
+    __tablename__ = "cart_items"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    user_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    variant_id = Column(Integer, ForeignKey("device_variants.id"), nullable=False)
+    quantity = Column(Integer, default=1)
+
+    customer = relationship("Customers", back_populates="cart_items")
+    variant = relationship("DeviceVariants")
+
+class Orders(Base):
+    __tablename__ = "orders"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+    status = Column(String(50))
+    total_price = Column(DECIMAL(12, 2))
+
+    customer = relationship("Customers", back_populates="orders")
+    items  = relationship("OrderItems", back_populates="order", cascade="all, delete-orphan")
+
+class OrderItems(Base):
+    __tablename__ = "order_items"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    variant_id = Column(Integer, ForeignKey("device_variants.id"), nullable=False)
+    quantity = Column(Integer, default=1)
+
+    order = relationship("Orders", back_populates="items")
+    variant = relationship("DeviceVariants")
 
 Base.metadata.create_all(engine)
 
-def show_products(category_id: int, manufacturer_id: int, page: int, page_size: int):
-    return session.query(Product, ProductVariant)\
-        .outerjoin(ProductVariant, Product.id == ProductVariant.product_id)\
-        .filter(
-        Product.category_id == category_id,
-        Product.manufacturer_id == manufacturer_id
-    ).order_by(Product.name).offset(page * page_size).limit(page_size).all()
-
-def count_products(category_id: int, manufacturer_id: int):
-     return session.query(Product, ProductVariant).outerjoin(ProductVariant, Product.id == ProductVariant.product_id)\
-         .filter(
-         Product.category_id == category_id,
-         Product.manufacturer_id == manufacturer_id
-     ).count()
-
-def import_from_csv(file_path):
-    with open(file_path, mode='r', encoding='utf-8') as file:
-        reader = csv.DictReader(file)
-
-        #Обработка производителя, если такого производителя нет, то он создается
-        for row in reader:
-            try:
-                category = session.query(Category).filter_by(name=row['category']).first()
-                if not category:
-                    category = Category(name=row['category'])
-                    session.add(category)
-
-                manufacturer = session.query(Manufacturer).filter_by(name=row['manufacturer']).first()
-                if not manufacturer:
-                    manufacturer = Manufacturer(name=row['manufacturer'])
-                    session.add(manufacturer)
-
-                if manufacturer not in category.manufacturers:
-                    category.manufacturers.append(manufacturer)
-
-                product = session.query(Product).filter_by(name=row['model'],
-                                                           manufacturer=manufacturer,
-                                                           category_id=category.id).first()
-                if not product:
-                    product = Product(name=row['model'], manufacturer=manufacturer, category=category)
-                    session.add(product)
-
-                variant = session.query(ProductVariant).filter_by(
-                    product_id=product.id,
-                    color=row['color'],
-                    memory=int(row['memory']) if row['memory'] else None
-                ).first()
-
-                if not variant:
-                    variant = ProductVariant(
-                        color=row['color'],
-                        memory=int(row['memory']) if row['memory'] else None,
-                        price=float(row['price']),
-                        product=product
-                    )
-                    session.add(variant)
-                session.commit()
-            except Exception as e:
-                print(e)
-                session.rollback()
-                continue
-    print('Импорт данных завершен')
-
-select(Category)
-import_from_csv('devices.csv')
+# def show_products(category_id: int, manufacturer_id: int, page: int, page_size: int):
+#     return session.query(Product, ProductVariant)\
+#         .outerjoin(ProductVariant, Product.id == ProductVariant.product_id)\
+#         .filter(
+#         Product.category_id == category_id,
+#         Product.manufacturer_id == manufacturer_id
+#     ).order_by(Product.name).offset(page * page_size).limit(page_size).all()
+#
+# def count_products(category_id: int, manufacturer_id: int):
+#      return session.query(Product, ProductVariant).outerjoin(ProductVariant, Product.id == ProductVariant.product_id)\
+#          .filter(
+#          Product.category_id == category_id,
+#          Product.manufacturer_id == manufacturer_id
+#      ).count()
+#
+# def import_from_csv(file_path):
+#     with open(file_path, mode='r', encoding='utf-8') as file:
+#         reader = csv.DictReader(file)
+#
+#         #Обработка производителя, если такого производителя нет, то он создается
+#         for row in reader:
+#             try:
+#                 category = session.query(Category).filter_by(name=row['category']).first()
+#                 if not category:
+#                     category = Category(name=row['category'])
+#                     session.add(category)
+#
+#                 manufacturer = session.query(Manufacturer).filter_by(name=row['manufacturer']).first()
+#                 if not manufacturer:
+#                     manufacturer = Manufacturer(name=row['manufacturer'])
+#                     session.add(manufacturer)
+#
+#                 if manufacturer not in category.manufacturers:
+#                     category.manufacturers.append(manufacturer)
+#
+#                 product = session.query(Product).filter_by(name=row['model'],
+#                                                            manufacturer=manufacturer,
+#                                                            category_id=category.id).first()
+#                 if not product:
+#                     product = Product(name=row['model'], manufacturer=manufacturer, category=category)
+#                     session.add(product)
+#
+#                 variant = session.query(ProductVariant).filter_by(
+#                     product_id=product.id,
+#                     color=row['color'],
+#                     memory=int(row['memory']) if row['memory'] else None
+#                 ).first()
+#
+#                 if not variant:
+#                     variant = ProductVariant(
+#                         color=row['color'],
+#                         memory=int(row['memory']) if row['memory'] else None,
+#                         price=float(row['price']),
+#                         product=product
+#                     )
+#                     session.add(variant)
+#                 session.commit()
+#             except Exception as e:
+#                 print(e)
+#                 session.rollback()
+#                 continue
+#     print('Импорт данных завершен')
+#
+# select(Category)
+# import_from_csv('devices.csv')
