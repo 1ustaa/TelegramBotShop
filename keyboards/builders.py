@@ -1,5 +1,5 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
-from data.model import session, Category, Manufacturer, manufacturer_category, show_products, count_products
+from data.model import session
 from keyboards.inline import main_menu_button, back_button
 
 def categories_kb():
@@ -33,7 +33,7 @@ def devices_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size:
                 spec.append(f"{variant.memory}GB")
             if variant.price:
                 spec.append(f"{variant.price} руб.")
-            text += f" {' '.join(spec)}"
+            text += f" {" ".join(spec)}"
         builder.button(text=text, callback_data=f"variant_{variant.id}" if variant else f"device_{device.id}")
 
     total_devices = count_products(category_id, manufacturer_id)

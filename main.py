@@ -9,7 +9,6 @@ from config_reader import config
 
 async def main():
     logging.basicConfig(level=logging.INFO)
-
     bot = Bot(token=config.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode="HTML"))
     dp = Dispatcher()
 

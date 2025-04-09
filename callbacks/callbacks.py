@@ -21,7 +21,7 @@ async def process_category_selection(callback: types.CallbackQuery, state: FSMCo
 async def process_device_selection(callback: types.CallbackQuery, state: FSMContext):
     manufacturer_id = int(callback.data.split("_")[1])
     category_id = await state.get_data()
-    category_id = category_id['chosen_category']
+    category_id = category_id["chosen_category"]
     await state.update_data(chosen_manufacturer=manufacturer_id)
     await callback.message.edit_text(
         "Выберите устройство", reply_markup=keyboards.builders.devices_kb(category_id, manufacturer_id)
