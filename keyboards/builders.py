@@ -1,12 +1,13 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
-from data.model import session
+from data.model import session, Categories
 from keyboards.inline import main_menu_button, back_button
 
 def categories_kb():
     builder = InlineKeyboardBuilder()
-    categories = session.query(Category).all()
+    categories = session.query(Categories).all()
     [builder.button(text=category.name, callback_data=f"categories_{category.id}") for category in categories]
     builder.adjust(2)
+    builder.row(main_menu_button())
     return builder.as_markup()
 
 def manufacturer_kb(category_id):

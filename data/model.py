@@ -1,14 +1,14 @@
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, select, Table, DateTime, BigInteger, UniqueConstraint
 from sqlalchemy.types import DECIMAL
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base
-# from config_reader import config
+from config_reader import config
 from datetime import datetime
 import csv
 from decimal import Decimal
 
 Base = declarative_base()
 
-engine = create_engine("sqlite:///shop.db") #config.db_link.get_secret_value()
+engine = create_engine(config.db_link.get_secret_value())
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -31,7 +31,7 @@ class Manufacturers(Base):
 class Models(Base):
     __tablename__ = "models"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False)
+    name = Column(String, nullable=False, unique=True)
 
     category_id = Column(Integer, ForeignKey("categories.id"))
     category = relationship("Categories", back_populates="models")
@@ -192,4 +192,4 @@ def import_from_csv(file_path):
 
     print("Импорт данных завершен")
 
-import_from_csv("devices.csv")
+# import_from_csv("devices.csv")

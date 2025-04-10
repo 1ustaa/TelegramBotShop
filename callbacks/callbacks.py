@@ -4,7 +4,29 @@ from states.states import ChoseDevice
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 
+
 router = Router()
+
+@router.callback_query(F.data == "categories")
+async def process_category_selection(callback: types.CallbackQuery):
+    await callback.message.edit_text(
+        "Выберите категорию", reply_markup=keyboards.builders.categories_kb()
+    )
+    await callback.answer()
+
+@router.callback_query(F.data == "information")
+async def process_category_selection(callback: types.CallbackQuery):
+    await callback.message.edit_text(
+        text="💳 <b>О магазине</b>" 
+            "\nМы — онлайн-магазин техники, в ассортименте: смартфоны, планшеты, часы и аудиоустройства от разных производителей. Мы стараемся предложить вам актуальные и качественные устройства по хорошим ценам."
+            "\n\nℹ️ <b>Обратите внимание:</b>" 
+            "\nИнформация, представленная в данном Telegram-боте, не является публичной офертой." 
+            "\nУточнить наличие и цену можно у нашего менеджера после оформления заказа.",
+        reply_markup=keyboards.inline.menu_kb
+    )
+    await callback.answer()
+
+
 
 #Выбор производителя
 @router.callback_query(F.data.startswith("categories_"), ChoseDevice.choosing_category)
@@ -46,7 +68,7 @@ async def process_devices_pagination(callback: types.CallbackQuery, state: FSMCo
 @router.callback_query(F.data == "main_menu", StateFilter("*"))
 async def return_main_menu(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
-        "🏠 Главное меню. Пожалуйста, выберите категорию:",
-        reply_markup=keyboards.builders.categories_kb())
+        "🏠 Главное меню.",
+        reply_markup=keyboards.inline.menu_kb)
     await state.set_state(ChoseDevice.choosing_category)
     await callback.answer()
