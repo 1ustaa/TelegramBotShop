@@ -1,6 +1,8 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
-from data.model import session, Categories
+from data.model import session, Categories, Manufacturers, manufacturer_category
 from keyboards.inline import main_menu_button, back_button
+
+# TODO: Сделать пагинацию на клавиатурах
 
 def categories_kb():
     builder = InlineKeyboardBuilder()
@@ -12,7 +14,7 @@ def categories_kb():
 
 def manufacturer_kb(category_id):
     builder = InlineKeyboardBuilder()
-    manufacturers = session.query(Manufacturer).join(manufacturer_category).filter(
+    manufacturers = session.query(Manufacturers).join(manufacturer_category).filter(
         manufacturer_category.c.category_id == category_id).all()
     for manufacturer in manufacturers:
         builder.button(text=manufacturer.name, callback_data=f"manufacturer_{manufacturer.id}")

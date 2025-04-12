@@ -4,15 +4,9 @@ from states.states import ChoseDevice
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 
+# TODO: Доработать кнопку назад
 
 router = Router()
-
-@router.callback_query(F.data == "categories")
-async def process_category_selection(callback: types.CallbackQuery):
-    await callback.message.edit_text(
-        "Выберите категорию", reply_markup=keyboards.builders.categories_kb()
-    )
-    await callback.answer()
 
 @router.callback_query(F.data == "information")
 async def process_category_selection(callback: types.CallbackQuery):
@@ -26,7 +20,13 @@ async def process_category_selection(callback: types.CallbackQuery):
     )
     await callback.answer()
 
-
+@router.callback_query(F.data == "categories")
+async def process_category_selection(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.edit_text(
+        "Выберите категорию", reply_markup=keyboards.builders.categories_kb()
+    )
+    await callback.answer()
+    await state.set_state(ChoseDevice.choosing_category)
 
 #Выбор производителя
 @router.callback_query(F.data.startswith("categories_"), ChoseDevice.choosing_category)
