@@ -9,26 +9,7 @@ from aiogram.filters import StateFilter
 # TODO: Доработать кнопку назад
 router = Router()
 
-
-@router.callback_query(F.data == "information")
-async def process_category_selection(callback: types.CallbackQuery):
-    try:
-        await callback.message.edit_text(
-            text="💳 <b>О магазине</b>"
-                 "\nМы — онлайн-магазин техники, в ассортименте: смартфоны, планшеты, часы и аудиоустройства от разных производителей. Мы стараемся предложить вам актуальные и качественные устройства по хорошим ценам."
-                 "\n\nℹ️ <b>Обратите внимание:</b>"
-                 "\nИнформация, представленная в данном Telegram-боте, не является публичной офертой."
-                 "\nУточнить наличие и цену можно у нашего менеджера после оформления заказа.",
-            reply_markup=keyboards.inline.menu_kb
-        )
-
-    except TelegramBadRequest as e:
-        if "message is not modified" in str(e):
-            pass
-        else:
-            raise
-    await callback.answer()
-
+# callback для категорий
 @router.callback_query(F.data == "categories")
 async def process_category_selection(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
@@ -37,18 +18,22 @@ async def process_category_selection(callback: types.CallbackQuery, state: FSMCo
     await push_state(state, ChoseDevice.showing_categories)
     await callback.answer()
 
-@router.callback_query(F.data.startswith("category_"))
+# callback для пагинации категорий
+@router.callback_query(F.data.startswith("pg_category"))
 async def process_category_pagination(callback: types.CallbackQuery, state: FSMContext):
     data_split = callback.data.split("_")
-    page = int(data_split[2])
+    page = int(data_split[3])
 
     await callback.message.edit_text(
         "Выберите категорию", reply_markup=keyboards.builders.categories_kb(page)
     )
     await callback.answer()
 
-#Выбор производителя
-@router.callback_query(F.data.startswith("categories_"), ChoseDevice.showing_categories)
+# callback для производителей
+@router.callback_query(
+    F.data.startswith("category_"),
+    ChoseDevice.showing_categories
+)
 async def process_manufacturer_selection(callback: types.CallbackQuery, state: FSMContext):
     category_id = int(callback.data.split("_")[1])
     await state.update_data(chosen_category=category_id)
@@ -58,45 +43,43 @@ async def process_manufacturer_selection(callback: types.CallbackQuery, state: F
     await push_state(state, ChoseDevice.showing_manufacturers)
     await callback.answer()
 
-@router.callback_query(F.data.startswith("manufacturer_prev_") | F.data.startswith("manufacturer_next_"))
+# callback для пагинации производителей
+@router.callback_query(
+    F.data.startswith("pg_manufacturer"),
+    ChoseDevice.showing_manufacturers
+)
 async def process_manufacturer_pagination(callback: types.CallbackQuery, state: FSMContext):
     data_split = callback.data.split("_")
 
-    category_id = int(data_split[2])
-    page = int(data_split[3])
+    category_id = int(data_split[3])
+    page = int(data_split[4])
 
     await callback.message.edit_text(
-        "Выберите категорию", reply_markup=keyboards.builders.manufacturer_kb(category_id, page)
+        "Выберите производителя", reply_markup=keyboards.builders.manufacturer_kb(category_id, page)
     )
     await callback.answer()
 
-
+# callback для моделей
 @router.callback_query(F.data.startswith("manufacturer_"), ChoseDevice.showing_manufacturers)
-async def process_device_selection(callback: types.CallbackQuery, state: FSMContext):
-    manufacturer_id = int(callback.data.split("_")[1])
-    data = await state.get_data()
-    category_id = data["chosen_category"]
+async def process_model_selection(callback: types.CallbackQuery, state: FSMContext):
+    data_split = callback.data.split("_")
+    manufacturer_id = int(data_split[1])
     await state.update_data(chosen_manufacturer=manufacturer_id)
+    data = await state.get_data()
+    category_id = data.get("chosen_category")
     await callback.message.edit_text(
-        "Выберите устройство", reply_markup=keyboards.builders.devices_kb(category_id, manufacturer_id)
+        "Выберите модель устройства", reply_markup=keyboards.builders.models_kb(category_id, manufacturer_id)
     )
-    await push_state(state, ChoseDevice.showing_devices)
+    await push_state(state, ChoseDevice.showing_models)
     await callback.answer()
 
-# @router.callback_query(F.data.startswith("devices_"), ChoseDevice.choosing_device)
-# async def process_devices_pagination(callback: types.CallbackQuery, state: FSMContext):
-#     data_parts = callback.data.split("_")
-#     action = data_parts[1]
-#     category_id = int(data_parts[2])
-#     manufacturer_id = int(data_parts[3])
-#     page = int(data_parts[4])
-#
-#     await callback.message.edit_text(
-#         "Выберите устройство",
-#         reply_markup=keyboards.builders.devices_kb(category_id, manufacturer_id, page)
-#     )
-#     await callback.answer()
+# callback для пагинации моделей
+# @router.callback_query(
+#     F.data.startswith("manufacturer_prev_") | F.data.startswith("manufacturer_next_"),
+#     ChoseDevice.showing_models
+# )
 
+# callback для кнопки главное меню
 @router.callback_query(F.data == "main_menu", StateFilter("*"))
 async def return_main_menu(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
@@ -142,4 +125,24 @@ async def go_back(callback: types.CallbackQuery, state: FSMContext):
             reply_markup=keyboards.inline.menu_kb
         )
 
+    await callback.answer()
+
+# callback для отображения информации о магазине
+@router.callback_query(F.data == "information")
+async def process_category_selection(callback: types.CallbackQuery):
+    try:
+        await callback.message.edit_text(
+            text="💳 <b>О магазине</b>"
+                 "\nМы — онлайн-магазин техники, в ассортименте: смартфоны, планшеты, часы и аудиоустройства от разных производителей. Мы стараемся предложить вам актуальные и качественные устройства по хорошим ценам."
+                 "\n\nℹ️ <b>Обратите внимание:</b>"
+                 "\nИнформация, представленная в данном Telegram-боте, не является публичной офертой."
+                 "\nУточнить наличие и цену можно у нашего менеджера после оформления заказа.",
+            reply_markup=keyboards.inline.menu_kb
+        )
+
+    except TelegramBadRequest as e:
+        if "message is not modified" in str(e):
+            pass
+        else:
+            raise
     await callback.answer()

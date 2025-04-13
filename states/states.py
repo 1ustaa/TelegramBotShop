@@ -5,7 +5,7 @@ from keyboards import builders
 class ChoseDevice(StatesGroup):
     showing_categories = State()
     showing_manufacturers = State()
-    showing_devices = State()
+    showing_models = State()
     showing_variants = State()
 
 state_handlers = {
