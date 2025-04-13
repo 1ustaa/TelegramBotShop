@@ -4,13 +4,39 @@ from keyboards.inline import main_menu_button, back_button
 
 # TODO: Сделать пагинацию на клавиатурах
 
-def categories_kb():
+def categories_kb(page=0 ,page_size=8):
+    categories_count = session.query(Categories).count()
+    total_pages = (categories_count + page_size - 1) // page_size
+
+    page = page % total_pages
+    categories = session.query(Categories).offset(page * page_size).limit(page_size).all()
+
     builder = InlineKeyboardBuilder()
-    categories = session.query(Categories).all()
     [builder.button(text=category.name, callback_data=f"categories_{category.id}") for category in categories]
     builder.adjust(2)
+
+    pagination_buttons = []
+    if total_pages > 1:
+        prev_page = (page - 1) if page > 0 else total_pages - 1
+        next_page = (page + 1) % total_pages
+
+        pagination_buttons.append(
+            InlineKeyboardButton(
+                text="⬅️",
+                callback_data=f"category_prev_{prev_page}"
+            )
+        )
+        pagination_buttons.append(
+            InlineKeyboardButton(
+                text="➡️",
+                callback_data=f"category_next_{next_page}"
+            )
+        )
+        builder.row(*pagination_buttons)
+
     builder.row(back_button())
     builder.row(main_menu_button())
+
     return builder.as_markup()
 
 def manufacturer_kb(category_id):

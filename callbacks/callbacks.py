@@ -37,6 +37,16 @@ async def process_category_selection(callback: types.CallbackQuery, state: FSMCo
     await push_state(state, ChoseDevice.showing_categories)
     await callback.answer()
 
+@router.callback_query(F.data.startswith("category_"))
+async def process_category_pagination(callback: types.CallbackQuery, state: FSMContext):
+    data_split = callback.data.split("_")
+    page = int(data_split[2])
+
+    await callback.message.edit_text(
+        "Выберите категорию", reply_markup=keyboards.builders.categories_kb(page)
+    )
+    await callback.answer()
+
 #Выбор производителя
 @router.callback_query(F.data.startswith("categories_"), ChoseDevice.showing_categories)
 async def process_category_selection(callback: types.CallbackQuery, state: FSMContext):
