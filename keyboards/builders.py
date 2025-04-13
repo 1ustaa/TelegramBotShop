@@ -9,6 +9,7 @@ def categories_kb():
     categories = session.query(Categories).all()
     [builder.button(text=category.name, callback_data=f"categories_{category.id}") for category in categories]
     builder.adjust(2)
+    builder.row(back_button())
     builder.row(main_menu_button())
     return builder.as_markup()
 

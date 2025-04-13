@@ -192,4 +192,4 @@ def import_from_csv(file_path):
 
     print("Импорт данных завершен")
 
-import_from_csv("devices.csv")
+# import_from_csv("devices.csv")

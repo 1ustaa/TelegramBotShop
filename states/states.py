@@ -1,10 +1,27 @@
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
+from keyboards import builders
 
 class ChoseDevice(StatesGroup):
-    choosing_category = State()
-    choosing_manufacturer = State()
-    choosing_device = State()
+    showing_categories = State()
+    showing_manufacturers = State()
+    showing_devices = State()
+    showing_variants = State()
+
+state_handlers = {
+    ChoseDevice.showing_categories:{
+        "markup": lambda data: builders.categories_kb(),
+        "text": "Выберите категорию"
+    },
+    ChoseDevice.showing_manufacturers:{
+        "markup": lambda data: builders.manufacturer_kb(data["chosen_category"]),
+        "text": "Выберите производителя"
+    },
+    # ChoseDevice.choosing_device: {
+    #     "markup": lambda data: builders.devices_kb(data["chosen_manufacturer"]),
+    #     "text": "Выберите производителя"
+    # }
+}
 
 async def push_state(state: FSMContext, new_state, clear_history=False, max_size=10):
     if clear_history:
