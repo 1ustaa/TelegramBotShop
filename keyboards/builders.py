@@ -4,7 +4,7 @@ from keyboards.inline import main_menu_button, back_button
 
 # TODO: Сделать пагинацию на клавиатурах
 
-def categories_kb(page=0 ,page_size=8):
+def categories_kb(page=0 ,page_size: int=8):
     categories_count = session.query(Categories).count()
     total_pages = (categories_count + page_size - 1) // page_size
 
@@ -39,18 +39,44 @@ def categories_kb(page=0 ,page_size=8):
 
     return builder.as_markup()
 
-def manufacturer_kb(category_id):
-    builder = InlineKeyboardBuilder()
+def manufacturer_kb(category_id, page = 0, page_size: int=):
+    manufacturer_count = session.query(Manufacturers).join(manufacturer_category).filter(
+        manufacturer_category.c.category_id == category_id).count()
+    total_pages = (manufacturer_count + page_size - 1) // page_size
+
+    page = page % total_pages
     manufacturers = session.query(Manufacturers).join(manufacturer_category).filter(
-        manufacturer_category.c.category_id == category_id).all()
+        manufacturer_category.c.category_id == category_id).offset(page * page_size).limit(page_size).all()
+
+    builder = InlineKeyboardBuilder()
     for manufacturer in manufacturers:
         builder.button(text=manufacturer.name, callback_data=f"manufacturer_{manufacturer.id}")
     builder.adjust(2)
+
+    pagination_buttons = []
+    if total_pages > 1:
+        prev_page = (page - 1) if page > 0 else total_pages - 1
+        next_page = (page + 1) % total_pages
+
+        pagination_buttons.append(
+            InlineKeyboardButton(
+                text="⬅️",
+                callback_data=f"manufacturer_prev_{category_id}_{prev_page}"
+            )
+        )
+        pagination_buttons.append(
+            InlineKeyboardButton(
+                text="➡️",
+                callback_data=f"manufacturer_next_{category_id}_{next_page}"
+            )
+        )
+        builder.row(*pagination_buttons)
+
     builder.row(back_button())
     builder.row(main_menu_button())
     return builder.as_markup()
 
-def devices_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size: int = 5):
+def devices_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size: int=8):
     builder = InlineKeyboardBuilder()
     devices = show_products(category_id, manufacturer_id, page, page_size)
     for device, variant in devices:

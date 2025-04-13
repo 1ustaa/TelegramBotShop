@@ -49,7 +49,7 @@ async def process_category_pagination(callback: types.CallbackQuery, state: FSMC
 
 #Выбор производителя
 @router.callback_query(F.data.startswith("categories_"), ChoseDevice.showing_categories)
-async def process_category_selection(callback: types.CallbackQuery, state: FSMContext):
+async def process_manufacturer_selection(callback: types.CallbackQuery, state: FSMContext):
     category_id = int(callback.data.split("_")[1])
     await state.update_data(chosen_category=category_id)
     await callback.message.edit_text(
@@ -57,6 +57,19 @@ async def process_category_selection(callback: types.CallbackQuery, state: FSMCo
     )
     await push_state(state, ChoseDevice.showing_manufacturers)
     await callback.answer()
+
+@router.callback_query(F.data.startswith("manufacturer_prev_") | F.data.startswith("manufacturer_next_"))
+async def process_manufacturer_pagination(callback: types.CallbackQuery, state: FSMContext):
+    data_split = callback.data.split("_")
+
+    category_id = int(data_split[2])
+    page = int(data_split[3])
+
+    await callback.message.edit_text(
+        "Выберите категорию", reply_markup=keyboards.builders.manufacturer_kb(category_id, page)
+    )
+    await callback.answer()
+
 
 @router.callback_query(F.data.startswith("manufacturer_"), ChoseDevice.showing_manufacturers)
 async def process_device_selection(callback: types.CallbackQuery, state: FSMContext):
