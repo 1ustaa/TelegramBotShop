@@ -6,7 +6,7 @@ from states.states import ChoseDevice, push_state, pop_state, state_handlers
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 
-# TODO: Доработать кнопку назад
+# TODO: Сделать пагинацию для моделей
 router = Router()
 
 # callback для категорий
@@ -74,10 +74,21 @@ async def process_model_selection(callback: types.CallbackQuery, state: FSMConte
     await callback.answer()
 
 # callback для пагинации моделей
-# @router.callback_query(
-#     F.data.startswith("manufacturer_prev_") | F.data.startswith("manufacturer_next_"),
-#     ChoseDevice.showing_models
-# )
+@router.callback_query(
+    F.data.startswith("pg_model"),
+    ChoseDevice.showing_models
+)
+async def process_model_pagination(callback: types.CallbackQuery, state: FSMContext):
+    data_split = callback.data.split("_")
+
+    category_id = int(data_split[3])
+    manufacturer_id = int(data_split[4])
+    page = int(data_split[5])
+
+    await callback.message.edit_text(
+        "Выберите модель устройства", reply_markup=keyboards.builders.models_kb(category_id, manufacturer_id, page)
+    )
+    await callback.answer()
 
 # callback для кнопки главное меню
 @router.callback_query(F.data == "main_menu", StateFilter("*"))
