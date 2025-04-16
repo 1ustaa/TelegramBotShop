@@ -7,6 +7,7 @@ class ChoseDevice(StatesGroup):
     showing_manufacturers = State()
     showing_models = State()
     showing_variants = State()
+    showing_colors = State()
 
 state_handlers = {
     ChoseDevice.showing_categories:{
@@ -17,10 +18,14 @@ state_handlers = {
         "markup": lambda data: builders.manufacturer_kb(data["chosen_category"]),
         "text": "Выберите производителя"
     },
-    # ChoseDevice.choosing_device: {
-    #     "markup": lambda data: builders.devices_kb(data["chosen_manufacturer"]),
-    #     "text": "Выберите производителя"
-    # }
+    ChoseDevice.showing_models:{
+        "markup": lambda data: builders.models_kb(data["chosen_category"], data["chosen_manufacturer"]),
+        "text": "Выберите модель устройства"
+    },
+    ChoseDevice.showing_colors:{
+        "markup": lambda data: builders.colors_kb(data["chosen_model"]),
+        "text": "Выберите цвет устройства"
+    }
 }
 
 async def push_state(state: FSMContext, new_state, clear_history=False, max_size=10):

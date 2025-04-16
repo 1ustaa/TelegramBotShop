@@ -6,7 +6,6 @@ from states.states import ChoseDevice, push_state, pop_state, state_handlers
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 
-# TODO: Сделать пагинацию для моделей
 router = Router()
 
 # callback для категорий
@@ -89,6 +88,20 @@ async def process_model_pagination(callback: types.CallbackQuery, state: FSMCont
         "Выберите модель устройства", reply_markup=keyboards.builders.models_kb(category_id, manufacturer_id, page)
     )
     await callback.answer()
+
+# callback для цветов
+@router.callback_query(F.data.startswith("model_"), ChoseDevice.showing_models)
+async def process_color_selection(callback: types.CallbackQuery, state: FSMContext):
+    data_split = callback.data.split("_")
+    model_id = int(data_split[1])
+    await state.update_data(chosen_model=model_id)
+    await callback.message.edit_text(
+        "Выберите цвет устройства", reply_markup=keyboards.builders.colors_kb(model_id)
+    )
+    await push_state(state, ChoseDevice.showing_colors)
+    await callback.answer()
+
+# TODO Написать колбеки для выбора цветов и пагинации цветов
 
 # callback для кнопки главное меню
 @router.callback_query(F.data == "main_menu", StateFilter("*"))

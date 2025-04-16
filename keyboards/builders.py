@@ -1,5 +1,5 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
-from data.model import session, Categories, Manufacturers, Models, manufacturer_category
+from data.model import session, Categories, Manufacturers, Models, manufacturer_category, Devices, Colors
 from keyboards.inline import main_menu_button, back_button
 
 MAX_PAGE_SIZE = 2
@@ -82,7 +82,7 @@ def models_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size: 
 
     page = page % total_pages
     models = session.query(Models).filter_by(category_id=category_id, manufacturer_id=manufacturer_id) \
-        .offset(page * page_size).limit(page_size).all()
+        .order_by(Models.name).offset(page * page_size).limit(page_size).all()
 
     builder = InlineKeyboardBuilder()
     for model in models:
@@ -112,4 +112,54 @@ def models_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size: 
     builder.row(main_menu_button())
     return builder.as_markup()
 
+# TODO: Доделать клавиатуру для выбора цветов
+def colors_kb(model_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
 
+    colors_count = (
+        session.query(Colors.id)
+        .join(Devices, Devices.color_id == Colors.id)
+        .filter(Devices.model_id == model_id)
+        .distinct()
+        .count()
+    )
+    total_pages = (colors_count + page_size - 1) // page_size
+    page = page % total_pages
+
+    colors = (
+        session.query(Colors)
+        .join(Devices, Devices.color_id == Colors.id)
+        .filter(Devices.model_id == model_id)
+        .distinct()
+        .order_by(Colors.name)
+        .offset(page * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    builder = InlineKeyboardBuilder()
+    for color in colors:
+        builder.button(text=color.name, callback_data=f"color_{color.id}")
+    builder.adjust(2)
+
+    pagination_buttons = []
+    if total_pages > 1:
+        prev_page = (page - 1) if page > 0 else total_pages - 1
+        next_page = (page + 1) % total_pages
+
+        pagination_buttons.append(
+            InlineKeyboardButton(
+                text="⬅️",
+                callback_data=f"pg_color_prev_{model_id}_{prev_page}"
+            )
+        )
+        pagination_buttons.append(
+            InlineKeyboardButton(
+                text="➡️",
+                callback_data=f"pg_model_next_{model_id}_{next_page}"
+            )
+        )
+        builder.row(*pagination_buttons)
+
+    builder.row(back_button())
+    builder.row(main_menu_button())
+    return builder.as_markup()
