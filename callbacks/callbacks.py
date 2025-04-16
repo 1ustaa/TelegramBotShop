@@ -101,7 +101,21 @@ async def process_color_selection(callback: types.CallbackQuery, state: FSMConte
     await push_state(state, ChoseDevice.showing_colors)
     await callback.answer()
 
-# TODO Написать колбеки для выбора цветов и пагинации цветов
+# callback для пагинации цветов
+@router.callback_query(
+    F.data.startswith("pg_color"),
+    ChoseDevice.showing_colors
+)
+async def process_color_pagination(callback: types.CallbackQuery, state: FSMContext):
+    data_split = callback.data.split("_")
+
+    model_id = int(data_split[3])
+    page = int(data_split[4])
+
+    await callback.message.edit_text(
+        "Выберите цвет устройства", reply_markup=keyboards.builders.colors_kb(model_id, page)
+    )
+    await callback.answer()
 
 # callback для кнопки главное меню
 @router.callback_query(F.data == "main_menu", StateFilter("*"))

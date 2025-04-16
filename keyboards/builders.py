@@ -1,8 +1,9 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 from data.model import session, Categories, Manufacturers, Models, manufacturer_category, Devices, Colors
 from keyboards.inline import main_menu_button, back_button
+from sqlalchemy import desc
 
-MAX_PAGE_SIZE = 2
+MAX_PAGE_SIZE = 4
 
 def categories_kb(page=0 ,page_size: int=MAX_PAGE_SIZE):
     categories_count = session.query(Categories).count()
@@ -82,7 +83,7 @@ def models_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size: 
 
     page = page % total_pages
     models = session.query(Models).filter_by(category_id=category_id, manufacturer_id=manufacturer_id) \
-        .order_by(Models.name).offset(page * page_size).limit(page_size).all()
+        .order_by(desc(Models.name)).offset(page * page_size).limit(page_size).all()
 
     builder = InlineKeyboardBuilder()
     for model in models:
@@ -112,7 +113,6 @@ def models_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size: 
     builder.row(main_menu_button())
     return builder.as_markup()
 
-# TODO: Доделать клавиатуру для выбора цветов
 def colors_kb(model_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
 
     colors_count = (
@@ -155,7 +155,7 @@ def colors_kb(model_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
         pagination_buttons.append(
             InlineKeyboardButton(
                 text="➡️",
-                callback_data=f"pg_model_next_{model_id}_{next_page}"
+                callback_data=f"pg_color_next_{model_id}_{next_page}"
             )
         )
         builder.row(*pagination_buttons)
