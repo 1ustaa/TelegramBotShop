@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, select, Table, DateTime, BigInteger, UniqueConstraint
 from sqlalchemy.types import DECIMAL
-from sqlalchemy.orm import sessionmaker, relationship, declarative_base
+from sqlalchemy.orm import sessionmaker, relationship, declarative_base, foreign
 from config_reader import config
 from datetime import datetime
 import csv
@@ -55,13 +55,20 @@ class Devices(Base):
 
     model_id = Column(Integer, ForeignKey("models.id"))
     model = relationship("Models", back_populates="devices")
-    color = Column(String(100), nullable=True)
+
+    color_id = Column(Integer, ForeignKey("colors.id"))
+    color = relationship("Colors", back_populates="devices")
 
     description = Column(String(500), nullable=True)
     image = Column(String(500), nullable=True)
 
     variants = relationship("DeviceVariants", back_populates="device")
 
+class Colors(Base):
+    __tablename__ = "colors"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)
+    devices = relationship("Devices", back_populates="color")
 
 #Таблица характеристика устройства
 class DeviceVariants(Base):
@@ -120,14 +127,13 @@ class OrderItems(Base):
 
 Base.metadata.create_all(engine)
 
-# def show_products(category_id: int, manufacturer_id: int, page: int, page_size: int):
-#     return session.query(Product, ProductVariant)\
-#         .outerjoin(ProductVariant, Product.id == ProductVariant.product_id)\
-#         .filter(
-#         Product.category_id == category_id,
-#         Product.manufacturer_id == manufacturer_id
-#     ).order_by(Product.name).offset(page * page_size).limit(page_size).all()
-#
+def show_products(model_id: int, page: int, page_size: int):
+    return session.query(Devices, DeviceVariants)\
+        .outerjoin(DeviceVariants, Devices.id == DeviceVariants.device_id)\
+        .filter(
+        Devices.model_id == model_id
+    ).offset(page * page_size).limit(page_size).all()
+
 # def count_products(category_id: int, manufacturer_id: int):
 #      return session.query(Product, ProductVariant).outerjoin(ProductVariant, Product.id == ProductVariant.product_id)\
 #          .filter(
@@ -164,9 +170,15 @@ def import_from_csv(file_path):
                 model.manufacturer = manufacturer
                 model.category = category
 
-                device = session.query(Devices).filter_by(model_id=model.id, color=row["color"]).first()
+                color = session.query(Colors).filter_by(name=row["color"]).first()
+                if not color:
+                    color = Colors(name=row["color"])
+                    session.add(color)
+                    session.flush()
+
+                device = session.query(Devices).filter_by(model_id=model.id, color_id=color.id).first()
                 if not device:
-                    device = Devices(model=model, color=row["color"], description=row["description"], image=row["image"])
+                    device = Devices(model=model, color=color, description=row["description"], image=row["image"])
                     session.add(device)
                     session.flush()
 
@@ -192,4 +204,4 @@ def import_from_csv(file_path):
 
     print("Импорт данных завершен")
 
-# import_from_csv("devices.csv")
+import_from_csv("devices.csv")
