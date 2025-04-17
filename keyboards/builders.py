@@ -16,25 +16,6 @@ def categories_kb(page=0 ,page_size: int=MAX_PAGE_SIZE):
     [builder.button(text=category.name, callback_data=f"category_{category.id}") for category in categories]
     builder.adjust(2)
 
-    # pagination_buttons = []
-    # if total_pages > 1:
-    #     prev_page = (page - 1) if page > 0 else total_pages - 1
-    #     next_page = (page + 1) % total_pages
-    #
-    #     pagination_buttons.append(
-    #         InlineKeyboardButton(
-    #             text="⬅️",
-    #             callback_data=f"pg_category_prev_{prev_page}"
-    #         )
-    #     )
-    #     pagination_buttons.append(
-    #         InlineKeyboardButton(
-    #             text="➡️",
-    #             callback_data=f"pg_category_next_{next_page}"
-    #         )
-    #     )
-    #     builder.row(*pagination_buttons)
-
     pg_buttons = make_pagination_buttons("pg_category", [], total_pages, page)
     builder.row(*pg_buttons)
 
