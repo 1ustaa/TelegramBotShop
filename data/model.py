@@ -1,6 +1,17 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, select, Table, DateTime, BigInteger, UniqueConstraint
+from sqlalchemy import (
+        create_engine,
+        Column,
+        Integer, String,
+        ForeignKey,
+        select,
+        Table,
+        DateTime,
+        BigInteger,
+        UniqueConstraint,
+        func
+    )
 from sqlalchemy.types import DECIMAL
-from sqlalchemy.orm import sessionmaker, relationship, declarative_base, foreign
+from sqlalchemy.orm import sessionmaker, relationship, declarative_base, selectinload
 from config_reader import config
 from datetime import datetime
 import csv
@@ -134,13 +145,6 @@ def show_products(model_id: int, page: int, page_size: int):
         Devices.model_id == model_id
     ).offset(page * page_size).limit(page_size).all()
 
-# def count_products(category_id: int, manufacturer_id: int):
-#      return session.query(Product, ProductVariant).outerjoin(ProductVariant, Product.id == ProductVariant.product_id)\
-#          .filter(
-#          Product.category_id == category_id,
-#          Product.manufacturer_id == manufacturer_id
-#      ).count()
-
 def import_from_csv(file_path):
     with open(file_path, mode="r", encoding="utf-8") as file:
         reader = csv.DictReader(file)
@@ -205,3 +209,48 @@ def import_from_csv(file_path):
     print("Импорт данных завершен")
 
 import_from_csv("devices.csv")
+
+def query_device_variants(model_id = 1, color_id = 1):
+    """
+
+    :param model_id: int айди модели устройства
+    :param color_id: int айди цвета устройства
+    :return: list все варианты устройств с отбором по модели по цвету
+    """
+    stmt  = (
+        select(DeviceVariants)
+        .join(DeviceVariants.device)
+        .join(Devices.model)
+        .join(Devices.color)
+        .where(Devices.model_id == model_id, Devices.color_id == color_id)
+        .order_by(
+            Models.name,
+            Colors.name,
+            DeviceVariants.memory,
+            DeviceVariants.sim
+        )
+        # options позволяет заранее подгрузить связанные объекты
+        # (в нашем случае model и color для device), чтобы
+        # избежать лишних запросов в базу при обращении к этим полям
+        .options(
+            selectinload(DeviceVariants.device).selectinload(Devices.model),
+            selectinload(DeviceVariants.device).selectinload(Devices.color)
+        )
+    )
+    result = session.execute(stmt)
+    device_variants = result.scalars().all()
+    return device_variants
+
+def count_device_variants(model_id = 1, color_id = 1):
+    stmt = (
+        select(func.count())
+        .select_from(DeviceVariants)
+        .join(DeviceVariants.device)
+        .where(Devices.model_id == model_id, Devices.color_id == color_id)
+    )
+    result = session.execute(stmt)
+    count = result.scalar_one()
+    return count
+
+query_device_variants()
+count_device_variants()
