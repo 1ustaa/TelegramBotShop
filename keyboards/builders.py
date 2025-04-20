@@ -1,9 +1,19 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
-from data.model import session, Categories, Manufacturers, Models, manufacturer_category, Devices, Colors
+from data.model import (
+        session,
+        Categories,
+        Manufacturers,
+        Models,
+        manufacturer_category,
+        Devices,
+        Colors,
+        count_device_variants,
+        query_device_variants
+    )
 from keyboards.inline import main_menu_button, back_button
 from sqlalchemy import desc
 
-MAX_PAGE_SIZE = 2
+MAX_PAGE_SIZE = 4
 
 def categories_kb(page=0 ,page_size: int=MAX_PAGE_SIZE):
     categories_count = session.query(Categories).count()
@@ -99,6 +109,28 @@ def colors_kb(model_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
     builder.row(back_button())
     builder.row(main_menu_button())
     return builder.as_markup()
+
+def variants_kb(model_id, color_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
+    variants_count = count_device_variants(model_id, color_id)
+
+    total_pages = (variants_count + page_size - 1) // page_size
+    page = page % total_pages
+
+    variants = query_device_variants(model_id, color_id, page * page_size, page_size)
+
+    builder = InlineKeyboardBuilder()
+    for variant in variants:
+        builder.button(text=f"{variant.sim}, {variant.memory}, {variant.price}", callback_data=f"variant_{variant.id}")
+    builder.adjust(2)
+
+    pg_buttons = make_pagination_buttons("pg_variant", [model_id, color_id], total_pages, page)
+    builder.row(*pg_buttons)
+
+    builder.row(back_button())
+    builder.row(main_menu_button())
+    return builder.as_markup()
+
+
 
 def make_pagination_buttons(prefix: str, items: list, total_pages: int, page: int) -> list:
     """

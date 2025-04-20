@@ -1,12 +1,18 @@
+import os.path
+
 from aiogram import F, types, Router
 from aiogram.exceptions import TelegramBadRequest
+from aiogram.types import FSInputFile, InputMediaPhoto
 
 import keyboards
 from states.states import ChoseDevice, push_state, pop_state, state_handlers
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
+from data.model import get_color_model_image
 
 router = Router()
+
+# TODO: Исправить работы изображений
 
 # callback для категорий
 @router.callback_query(F.data == "categories")
@@ -21,7 +27,11 @@ async def process_category_selection(callback: types.CallbackQuery, state: FSMCo
 @router.callback_query(F.data.startswith("pg_category"))
 async def process_category_pagination(callback: types.CallbackQuery, state: FSMContext):
     data_split = callback.data.split("_")
-    page = int(data_split[3])
+    try:
+        page = int(data_split[3])
+    except (IndexError, ValueError):
+        await callback.answer("Некорректные данные.")
+        return
 
     await callback.message.edit_text(
         "Выберите категорию", reply_markup=keyboards.builders.categories_kb(page)
@@ -34,7 +44,11 @@ async def process_category_pagination(callback: types.CallbackQuery, state: FSMC
     ChoseDevice.showing_categories
 )
 async def process_manufacturer_selection(callback: types.CallbackQuery, state: FSMContext):
-    category_id = int(callback.data.split("_")[1])
+    try:
+        category_id = int(callback.data.split("_")[1])
+    except (IndexError, ValueError):
+        await callback.answer("Некорректные данные.")
+        return
     await state.update_data(chosen_category=category_id)
     await callback.message.edit_text(
         "Выберите производителя", reply_markup=keyboards.builders.manufacturer_kb(category_id)
@@ -49,9 +63,12 @@ async def process_manufacturer_selection(callback: types.CallbackQuery, state: F
 )
 async def process_manufacturer_pagination(callback: types.CallbackQuery, state: FSMContext):
     data_split = callback.data.split("_")
-
-    category_id = int(data_split[3])
-    page = int(data_split[4])
+    try:
+        category_id = int(data_split[3])
+        page = int(data_split[4])
+    except (IndexError, ValueError):
+        await callback.answer("Некорректные данные.")
+        return
 
     await callback.message.edit_text(
         "Выберите производителя", reply_markup=keyboards.builders.manufacturer_kb(category_id, page)
@@ -62,7 +79,12 @@ async def process_manufacturer_pagination(callback: types.CallbackQuery, state: 
 @router.callback_query(F.data.startswith("manufacturer_"), ChoseDevice.showing_manufacturers)
 async def process_model_selection(callback: types.CallbackQuery, state: FSMContext):
     data_split = callback.data.split("_")
-    manufacturer_id = int(data_split[1])
+    try:
+        manufacturer_id = int(data_split[1])
+    except (IndexError, ValueError):
+        await callback.answer("Некорректные данные.")
+        return
+
     await state.update_data(chosen_manufacturer=manufacturer_id)
     data = await state.get_data()
     category_id = data.get("chosen_category")
@@ -79,9 +101,14 @@ async def process_model_selection(callback: types.CallbackQuery, state: FSMConte
 )
 async def process_model_pagination(callback: types.CallbackQuery, state: FSMContext):
     data_split = callback.data.split("_")
+    try:
+        category_id = int(data_split[3])
+        manufacturer_id = int(data_split[4])
+    except (IndexError, ValueError):
+        await callback.answer("Некорректные данные.")
+        return
 
-    category_id = int(data_split[3])
-    manufacturer_id = int(data_split[4])
+
     page = int(data_split[5])
 
     await callback.message.edit_text(
@@ -93,7 +120,12 @@ async def process_model_pagination(callback: types.CallbackQuery, state: FSMCont
 @router.callback_query(F.data.startswith("model_"), ChoseDevice.showing_models)
 async def process_color_selection(callback: types.CallbackQuery, state: FSMContext):
     data_split = callback.data.split("_")
-    model_id = int(data_split[1])
+    try:
+        model_id = int(data_split[1])
+    except (IndexError, ValueError):
+        await callback.answer("Некорректные данные.")
+        return
+
     await state.update_data(chosen_model=model_id)
     await callback.message.edit_text(
         "Выберите цвет устройства", reply_markup=keyboards.builders.colors_kb(model_id)
@@ -108,21 +140,113 @@ async def process_color_selection(callback: types.CallbackQuery, state: FSMConte
 )
 async def process_color_pagination(callback: types.CallbackQuery, state: FSMContext):
     data_split = callback.data.split("_")
-
-    model_id = int(data_split[3])
-    page = int(data_split[4])
+    try:
+        model_id = int(data_split[3])
+        page = int(data_split[4])
+    except (IndexError, ValueError):
+        await callback.answer("Некорректные данные.")
+        return
 
     await callback.message.edit_text(
         "Выберите цвет устройства", reply_markup=keyboards.builders.colors_kb(model_id, page)
     )
     await callback.answer()
 
+# callback для вариантов
+@router.callback_query(F.data.startswith("color_"), ChoseDevice.showing_colors)
+async def process_variant_selection(callback: types.CallbackQuery, state: FSMContext):
+    data_split = callback.data.split("_")
+    try:
+        color_id = int(data_split[1])
+    except (IndexError, ValueError):
+        await callback.answer("Некорректные данные.")
+        return
+
+    data = await state.get_data()
+    model_id = data.get("chosen_model")
+
+    model_name, color_name, image_path = get_color_model_image(model_id, color_id)
+
+    await state.update_data(chosen_color=color_id)
+
+    if image_path and os.path.exists(image_path):
+        photo = FSInputFile(image_path)
+        await callback.message.edit_media(
+                media=InputMediaPhoto(media=photo, caption=f"<b>{model_name} {color_name}</b>"
+                                                           "\nНажмите на вариант устройства, что бы добавить его в корзину"),
+                reply_markup=keyboards.builders.variants_kb(model_id, color_id)
+        )
+    else:
+        await callback.message.edit_text(
+                f"<b>{model_name} {color_name}</b>\nНажмите на вариант устройства, что бы добавить его в корзину",
+                reply_markup=keyboards.builders.variants_kb(model_id ,color_id)
+        )
+
+    await push_state(state, ChoseDevice.showing_variants)
+    await callback.answer()
+
+# callback для пагинации вариантов
+@router.callback_query(
+    F.data.startswith("pg_variant"),
+    ChoseDevice.showing_variants
+)
+async def process_variant_pagination(callback: types.CallbackQuery, state: FSMContext):
+    data_split = callback.data.split("_")
+
+    try:
+        model_id = int(data_split[3])
+        color_id = int(data_split[4])
+        page = int(data_split[5])
+    except (IndexError, ValueError):
+        await callback.answer("Некорректные данные.")
+        return
+
+    model_name, color_name, image_path = get_color_model_image(model_id, color_id)
+
+    if image_path and os.path.exists(image_path):
+        photo = FSInputFile(image_path)
+        await callback.message.edit_media(
+            media=InputMediaPhoto(media=photo, caption=f"<b>{model_name} {color_name}</b>"
+                                                       "\nНажмите на вариант устройства, что бы добавить его в корзину"),
+            reply_markup=keyboards.builders.variants_kb(model_id, color_id, page)
+        )
+    else:
+        await callback.message.edit_text(
+            f"<b>{model_name} {color_name}</b>\nНажмите на вариант устройства, что бы добавить его в корзину",
+            reply_markup=keyboards.builders.variants_kb(model_id, color_id, page)
+        )
+    await callback.answer()
+
+async def safe_edit_message(callback: types.CallbackQuery, text: str=None, reply_markup=None, media=None):
+    try:
+        if media:
+            await callback.message.edit_media(
+                media=InputMediaPhoto(
+                    media=media,
+                    caption=text
+                ),
+                reply_markup=reply_markup
+            )
+        else:
+            await callback.message.edit_text(text, reply_markup=reply_markup)
+    except TelegramBadRequest as e:
+        if "message is not modified" in str(e):
+            pass
+        elif "there is no text in the message to edit" in str(e):
+            await callback.message.delete()
+            await callback.message.answer(
+                text=text,
+                reply_markup=reply_markup
+            )
+        else:
+            raise
+
+
 # callback для кнопки главное меню
 @router.callback_query(F.data == "main_menu", StateFilter("*"))
 async def return_main_menu(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.edit_text(
-        "🏠 Главное меню.",
-        reply_markup=keyboards.inline.menu_kb)
+    text = "🏠 Главное меню."
+    await safe_edit_message(callback, text, keyboards.inline.menu_kb)
     await state.clear()
     await callback.answer()
 
@@ -132,9 +256,8 @@ async def go_back(callback: types.CallbackQuery, state: FSMContext):
     prev_state = await pop_state(state)
 
     if prev_state is None:
-        await callback.message.edit_text(
-            "🏠 Главное меню.",
-            reply_markup=keyboards.inline.menu_kb
+        await safe_edit_message(
+            callback, "🏠 Главное меню.", keyboards.inline.menu_kb
         )
         return
 
@@ -146,19 +269,21 @@ async def go_back(callback: types.CallbackQuery, state: FSMContext):
             markup = handler["markup"](data)
             text = handler["text"]
             try:
-                await callback.message.edit_text(text, reply_markup=markup)
+                await safe_edit_message(callback, text, markup)
             except TelegramBadRequest as e:
                 if "message is not modified" in str(e):
                     pass
                 else:
                     raise
         except Exception as e:
-            await callback.message.edit_text(
+            await safe_edit_message(
+                callback,
                 "Ошибка при возврате назад. Попробуйте снова.",
                 reply_markup=keyboards.inline.menu_kb
             )
     else:
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             "Неизвестное состояние. Возвращаемся в главное меню.",
             reply_markup=keyboards.inline.menu_kb
         )

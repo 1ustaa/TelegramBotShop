@@ -1,21 +1,22 @@
 from sqlalchemy import (
-        create_engine,
-        Column,
-        Integer, String,
-        ForeignKey,
-        select,
-        Table,
-        DateTime,
-        BigInteger,
-        UniqueConstraint,
-        func
-    )
+    create_engine,
+    Column,
+    Integer, String,
+    ForeignKey,
+    select,
+    Table,
+    DateTime,
+    BigInteger,
+    UniqueConstraint,
+    func, Boolean
+)
 from sqlalchemy.types import DECIMAL
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base, selectinload
 from config_reader import config
 from datetime import datetime
 import csv
 from decimal import Decimal
+import os
 
 Base = declarative_base()
 
@@ -71,9 +72,20 @@ class Devices(Base):
     color = relationship("Colors", back_populates="devices")
 
     description = Column(String(500), nullable=True)
-    image = Column(String(500), nullable=True)
+
+    images = relationship("DeviceImages", back_populates="device", cascade="all, delete-orphan")
 
     variants = relationship("DeviceVariants", back_populates="device")
+
+class DeviceImages(Base):
+    __tablename__ = "device_images"
+
+    id = Column(Integer, primary_key=True)
+    path = Column(String, nullable=False)
+    is_main = Column(Boolean, default=False)
+
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"))
+    device = relationship("Devices", back_populates="images")
 
 class Colors(Base):
     __tablename__ = "colors"
@@ -182,9 +194,14 @@ def import_from_csv(file_path):
 
                 device = session.query(Devices).filter_by(model_id=model.id, color_id=color.id).first()
                 if not device:
-                    device = Devices(model=model, color=color, description=row["description"], image=row["image"])
+                    device = Devices(model=model, color=color, description=row["description"])
                     session.add(device)
                     session.flush()
+
+                image = session.query(DeviceImages).filter_by(path=row["image"], device_id=device.id).first()
+                if not image:
+                    image = DeviceImages(path=row["image"], is_main=True, device=device)
+                    session.add(image)
 
                 variant = session.query(DeviceVariants).filter_by(
                     device_id=device.id,
@@ -210,12 +227,14 @@ def import_from_csv(file_path):
 
 import_from_csv("devices.csv")
 
-def query_device_variants(model_id = 1, color_id = 1):
+def query_device_variants(model_id: int, color_id:int, offset: int, limit: int):
     """
 
     :param model_id: int айди модели устройства
     :param color_id: int айди цвета устройства
-    :return: list все варианты устройств с отбором по модели по цвету
+    :param offset: int с какой записи выбирать
+    :param limit: int ограничение по количеству записей
+    :return: все варианты устройств с отбором по модели по цвету
     """
     stmt  = (
         select(DeviceVariants)
@@ -229,6 +248,8 @@ def query_device_variants(model_id = 1, color_id = 1):
             DeviceVariants.memory,
             DeviceVariants.sim
         )
+        .offset(offset)
+        .limit(limit)
         # options позволяет заранее подгрузить связанные объекты
         # (в нашем случае model и color для device), чтобы
         # избежать лишних запросов в базу при обращении к этим полям
@@ -241,7 +262,7 @@ def query_device_variants(model_id = 1, color_id = 1):
     device_variants = result.scalars().all()
     return device_variants
 
-def count_device_variants(model_id = 1, color_id = 1):
+def count_device_variants(model_id :int, color_id:int) -> int:
     stmt = (
         select(func.count())
         .select_from(DeviceVariants)
@@ -252,5 +273,24 @@ def count_device_variants(model_id = 1, color_id = 1):
     count = result.scalar_one()
     return count
 
-query_device_variants()
-count_device_variants()
+def get_color_model_image(model_id, color_id):
+    model = session.get(Models, model_id)
+    color = session.get(Colors, color_id)
+
+    model_name = model.name if model else ""
+    color_name = color.name if color else ""
+
+    image = ""
+
+    if model and color:
+        device = (
+            session.query(Devices)
+            .filter_by(model_id=model.id, color_id=color.id)
+            .first()
+        )
+        if device:
+            main_image = next((img for img in device.images if img.is_main), None)
+            if main_image:
+                image = os.path.join("stock", "devices_images", main_image.path)
+
+    return model_name, color_name, image
