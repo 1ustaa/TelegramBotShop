@@ -8,11 +8,11 @@ import keyboards
 from states.states import ChoseDevice, push_state, pop_state, state_handlers
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
-from data.model import get_color_model_image
+from data.crud import get_color_model_image
 
 router = Router()
 
-# TODO: Исправить работы изображений
+# TODO: Сделать добавление товара в корзину
 
 # callback для категорий
 @router.callback_query(F.data == "categories")

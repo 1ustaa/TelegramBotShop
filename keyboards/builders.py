@@ -7,9 +7,8 @@ from data.model import (
         manufacturer_category,
         Devices,
         Colors,
-        count_device_variants,
-        query_device_variants
     )
+from data.crud import count_device_variants, query_device_variants
 from keyboards.inline import main_menu_button, back_button
 from sqlalchemy import desc
 
