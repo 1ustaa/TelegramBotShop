@@ -3,20 +3,16 @@ from sqlalchemy import (
     Column,
     Integer, String,
     ForeignKey,
-    select,
     Table,
     DateTime,
     BigInteger,
     UniqueConstraint,
-    func, Boolean
+    Boolean
 )
 from sqlalchemy.types import DECIMAL
-from sqlalchemy.orm import sessionmaker, relationship, declarative_base, selectinload
+from sqlalchemy.orm import sessionmaker, relationship, declarative_base
 from config_reader import config
 from datetime import datetime
-import csv
-from decimal import Decimal
-import os
 
 Base = declarative_base()
 

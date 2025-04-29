@@ -8,7 +8,7 @@ import keyboards
 from states.states import ChoseDevice, push_state, pop_state, state_handlers
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
-from data.crud import get_color_model_image
+from data.crud import get_color_model_image, add_new_customer, add_cart_item
 
 router = Router()
 
@@ -216,6 +216,20 @@ async def process_variant_pagination(callback: types.CallbackQuery, state: FSMCo
             reply_markup=keyboards.builders.variants_kb(model_id, color_id, page)
         )
     await callback.answer()
+
+@router.callback_query(
+    F.data.startswith("variant_"),
+    ChoseDevice.showing_variants
+)
+async def add_item_in_cart(callback: types.CallbackQuery, state: FSMContext):
+    data_split = callback.data.split("_")
+    variant_id = data_split[1]
+    user_id = callback.from_user.id
+    username = callback.from_user.username or "Без имени"
+    add_new_customer(user_id, username)
+    add_cart_item(variant_id, user_id)
+
+
 
 async def safe_edit_message(callback: types.CallbackQuery, text: str=None, reply_markup=None, media=None):
     try:

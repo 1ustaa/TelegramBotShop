@@ -1,4 +1,25 @@
 from data.model import *
+import csv
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Integer, String,
+    ForeignKey,
+    Table,
+    DateTime,
+    BigInteger,
+    UniqueConstraint,
+    Boolean,
+    select,
+    func
+)
+from sqlalchemy.types import DECIMAL
+from sqlalchemy.orm import sessionmaker, relationship, declarative_base, selectinload
+from config_reader import config
+from datetime import datetime
+import os
+from decimal import Decimal
+
 
 def show_products(model_id: int, page: int, page_size: int):
     return session.query(Devices, DeviceVariants)\
@@ -144,3 +165,19 @@ def get_color_model_image(model_id, color_id):
                 image = os.path.join("stock", "devices_images", main_image.path)
 
     return model_name, color_name, image
+
+def add_new_customer(user_id: int, username: str):
+    customer = session.query(Customers).filter_by(telegram_id=user_id).first()
+    if not customer:
+        customer = Customers(telegram_id=user_id, username=username)
+        session.add(customer)
+        session.commit()
+
+def add_cart_item(variant_id, user_id):
+    cart_item = session.query(CartItems).filter_by(user_id=user_id, variant_id=variant_id).first()
+    if cart_item:
+        cart_item.quantity += 1
+    else:
+        cart_item = CartItems(user_id=user_id, variant_id=variant_id, quantity=1)
+        session.add(cart_item)
+    session.commit()
