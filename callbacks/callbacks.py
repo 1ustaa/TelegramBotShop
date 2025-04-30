@@ -12,7 +12,7 @@ from data.crud import get_color_model_image, add_new_customer, add_cart_item
 
 router = Router()
 
-# TODO: Сделать добавление товара в корзину
+# TODO: Дописать колбек для добавления товара в корзину
 
 # callback для категорий
 @router.callback_query(F.data == "categories")
@@ -228,6 +228,28 @@ async def add_item_in_cart(callback: types.CallbackQuery, state: FSMContext):
     username = callback.from_user.username or "Без имени"
     add_new_customer(user_id, username)
     add_cart_item(variant_id, user_id)
+
+    data = await state.get_data()
+    model_id = data.get("chosen_model")
+    color_id = data.get("chosen_color")
+
+    model_name, color_name, image_path = get_color_model_image(model_id, color_id)
+
+    if image_path and os.path.exists(image_path):
+        photo = FSInputFile(image_path)
+        await callback.message.edit_media(
+            media=InputMediaPhoto(media=photo, caption="Товар добавлен в корзину \n"
+                                                       "Что бы посмотреть корзину перейдите в главное меню"),
+            reply_markup=keyboards.builders.variants_kb(model_id, color_id)
+        )
+    else:
+        await callback.message.edit_text(
+            "Товар добавлен в корзину \n"
+            "Что бы посмотреть корзину перейдите в главное меню",
+            reply_markup=keyboards.builders.variants_kb(model_id, color_id)
+        )
+
+    await callback.answer()
 
 
 
