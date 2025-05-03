@@ -8,11 +8,9 @@ import keyboards
 from states.states import ChoseDevice, push_state, pop_state, state_handlers
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
-from data.crud import get_color_model_image, add_new_customer, add_cart_item
+from data.crud import get_color_model_image, add_new_customer, add_cart_item, get_cart_items
 
 router = Router()
-
-# TODO: Дописать колбек для добавления товара в корзину
 
 # callback для категорий
 @router.callback_query(F.data == "categories")
@@ -173,12 +171,12 @@ async def process_variant_selection(callback: types.CallbackQuery, state: FSMCon
         photo = FSInputFile(image_path)
         await callback.message.edit_media(
                 media=InputMediaPhoto(media=photo, caption=f"<b>{model_name} {color_name}</b>"
-                                                           "\nНажмите на вариант устройства, что бы добавить его в корзину"),
+                                                           "\nНажмите на кнопку с ценой, \nчто бы добавить его в корзину"),
                 reply_markup=keyboards.builders.variants_kb(model_id, color_id)
         )
     else:
         await callback.message.edit_text(
-                f"<b>{model_name} {color_name}</b>\nНажмите на вариант устройства, что бы добавить его в корзину",
+                f"<b>{model_name} {color_name}</b>\nНажмите на кнопку с ценой, \nчто бы добавить его в корзину",
                 reply_markup=keyboards.builders.variants_kb(model_id ,color_id)
         )
 
@@ -207,12 +205,12 @@ async def process_variant_pagination(callback: types.CallbackQuery, state: FSMCo
         photo = FSInputFile(image_path)
         await callback.message.edit_media(
             media=InputMediaPhoto(media=photo, caption=f"<b>{model_name} {color_name}</b>"
-                                                       "\nНажмите на вариант устройства, что бы добавить его в корзину"),
+                                                       "\nНажмите на кнопку с ценой, \nчто бы добавить его в корзину"),
             reply_markup=keyboards.builders.variants_kb(model_id, color_id, page)
         )
     else:
         await callback.message.edit_text(
-            f"<b>{model_name} {color_name}</b>\nНажмите на вариант устройства, что бы добавить его в корзину",
+            f"<b>{model_name} {color_name}</b>\nНажмите на кнопку с ценой, \nчто бы добавить его в корзину",
             reply_markup=keyboards.builders.variants_kb(model_id, color_id, page)
         )
     await callback.answer()
@@ -277,6 +275,13 @@ async def safe_edit_message(callback: types.CallbackQuery, text: str=None, reply
         else:
             raise
 
+#callback для корзины
+@router.callback_query(F.data == "cart")
+async def show_cart(callback: types.CallbackQuery):
+    cart_items = get_cart_items(callback.from_user.id)
+    text = [f'{item["model"]} {item["color"]} {item["sim"]} {item["memory"]} {item["price"]}'
+            f'{item["quantity"]} {item["sum"]}\n' for item in cart_items]
+    await callback.message.edit_text("🛒 Ваша корзина:\n\n" + "".join(text))
 
 # callback для кнопки главное меню
 @router.callback_query(F.data == "main_menu", StateFilter("*"))

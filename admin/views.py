@@ -1,0 +1,136 @@
+from aiohttp import request
+from flask_appbuilder.views import ModelView
+from flask_appbuilder.models.sqla.interface import SQLAInterface
+from flask_appbuilder.widgets import ListThumbnail
+from werkzeug.utils import secure_filename
+from wtforms import FileField
+from flask import request, url_for
+from config_reader import base_dir
+from markupsafe import Markup
+import os
+from data.model import (Categories,
+                        Manufacturers,
+                        Models,
+                        Colors,
+                        SimCards,
+                        MemoryStorage,
+                        ModelVariants,
+                        ModelsImages
+                        )
+
+class CategoriesView(ModelView):
+    datamodel = SQLAInterface(Categories)
+
+    columns = ["name"]
+    list_columns = add_columns = edit_columns = show_columns = columns
+
+    exclude_list = ["models", "manufacturers"]
+    add_exclude_columns = search_exclude_columns =  edit_exclude_columns = show_exclude_columns = exclude_list
+
+    label_columns = {"name": "Категория"}
+
+class ManufacturersView(ModelView):
+    datamodel = SQLAInterface(Manufacturers)
+
+    columns = ["name", "categories"]
+    list_columns = add_columns = edit_columns = show_columns = columns
+
+    exclude_list = ["models"]
+    add_exclude_columns = search_exclude_columns =  edit_exclude_columns = show_exclude_columns = exclude_list
+
+    label_columns = {"name": "Производитель",
+                     "categories": "Категории"}
+
+class ModelsView(ModelView):
+    datamodel = SQLAInterface(Models)
+
+    columns = ["category", "manufacturer", "name"]
+    list_columns = add_columns = edit_columns = show_columns = columns
+
+    exclude_list = ["images", "model_variants"]
+    add_exclude_columns = search_exclude_columns =  edit_exclude_columns = show_exclude_columns = exclude_list
+
+    label_columns = {"name": "Модель",
+                     "category": "Категория",
+                     "manufacturer": "Производитель",
+                     "color": "Цвет",
+                     "model_variants": "Вариант",
+                     "description": "Описание"}
+
+class ColorsView(ModelView):
+    datamodel = SQLAInterface(Colors)
+
+    columns = ["name"]
+    list_columns = add_columns = edit_columns = show_columns = columns
+
+    label_columns = {"name": "Цвет"}
+
+    exclude_list = ["images", "variants"]
+    add_exclude_columns = search_exclude_columns =  edit_exclude_columns = show_exclude_columns = exclude_list
+
+class SimCardsView(ModelView):
+    datamodel = SQLAInterface(SimCards)
+
+    list_columns = ["name"]
+    label_columns = {"name": "Симкарты"}
+
+class MemoryStorageView(ModelView):
+    datamodel = SQLAInterface(MemoryStorage)
+
+    list_columns = ["name", "quantity"]
+    label_columns = {"name": "Память",
+                     "quantity": "Количество Gb"}
+
+class ModelVariantsView(ModelView):
+    datamodel = SQLAInterface(ModelVariants)
+
+    list_columns = ["model", "color", "sim", "memory", "price", "description", "is_active"]
+    label_columns = {"model": "Устройство",
+                     "color": "Цвет",
+                     "sim": "Сим-карта",
+                     "memory": "Память",
+                     "price": "Цена",
+                     "description": "Описание",
+                     "is_active": "Активно"
+                     }
+
+class ModelsImagesView(ModelView):
+    datamodel = SQLAInterface(ModelsImages)
+
+    add_form_extra_fields = {
+        "upload": FileField("Фото", render_kw={"accept": "image/*"})
+    }
+
+    list_columns = ['model', 'color', 'is_main']
+    add_columns = ['model', 'color', 'upload', 'is_main']
+    label_columns = {"model": "Устройство",
+                     "color": "Цвет",
+                     "is_main": "Главное"
+                     }
+
+    exclude_list = ["path"]
+    add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
+
+    def _save_image(self, file_storage):
+        filename = secure_filename(file_storage.filename)
+        filepath = os.path.join(base_dir, "stock", "devices_images", filename)
+
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+        file_storage.save(filepath)
+        return filename
+
+    def pre_add(self, item):
+        file = request.files.get("upload")
+        if file and file.filename:
+            saved_path = self._save_image(file)
+            item.path = saved_path
+
+    def pre_delete(self, item):
+        if item.path:
+            full_path = os.path.join(base_dir, "stock", "devices_images", item.path)
+            if os.path.isfile(full_path):
+                try:
+                    os.remove(full_path)
+                except Exception as e:
+                    print(f"Ошибка удаления файла: {e}")
