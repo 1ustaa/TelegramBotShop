@@ -11,12 +11,13 @@ from sqlalchemy import (
 )
 from sqlalchemy.types import DECIMAL
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base
-from config_reader import config
+from config_reader import db_link
 from datetime import datetime
+
 
 Base = declarative_base()
 
-engine = create_engine(config.db_link.get_secret_value())
+engine = create_engine(db_link)
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -27,6 +28,8 @@ class Categories(Base):
     name = Column(String(100), nullable=False, unique=True)
     models = relationship("Models", back_populates="category")
     manufacturers = relationship("Manufacturers", secondary="manufacturer_category", back_populates="categories")
+    def __str__(self):
+        return self.name
 
 #Таблица Производитель
 class Manufacturers(Base):
@@ -36,19 +39,10 @@ class Manufacturers(Base):
     models = relationship("Models", back_populates="manufacturer")
     categories = relationship("Categories", secondary="manufacturer_category", back_populates="manufacturers")
 
-class Models(Base):
-    __tablename__ = "models"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False, unique=True)
+    def __str__(self):
+        return self.name
 
-    category_id = Column(Integer, ForeignKey("categories.id"))
-    category = relationship("Categories", back_populates="models")
-
-    manufacturer_id = Column(Integer, ForeignKey("manufacturers.id"))
-    manufacturer = relationship("Manufacturers", back_populates="models")
-
-    devices = relationship("Devices", back_populates="model")
-
+#Таблица для связи категорий и производителей
 manufacturer_category = Table(
     "manufacturer_category",
     Base.metadata,
@@ -56,50 +50,75 @@ manufacturer_category = Table(
     Column("category_id", Integer, ForeignKey("categories.id"), primary_key=True)
 )
 
-#Таблица Устройство
-class Devices(Base):
-    __tablename__ = "devices"
+class Models(Base):
+    __tablename__ = "models"
     id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False, unique=True)
+    description = Column(String(500), nullable=True)
+    images = relationship("ModelsImages", back_populates="model", cascade="all, delete-orphan")
+    model_variants = relationship("ModelVariants", back_populates="model")
 
-    model_id = Column(Integer, ForeignKey("models.id"))
-    model = relationship("Models", back_populates="devices")
+    category_id = Column(Integer, ForeignKey("categories.id"))
+    category = relationship("Categories", back_populates="models")
+
+    manufacturer_id = Column(Integer, ForeignKey("manufacturers.id"))
+    manufacturer = relationship("Manufacturers", back_populates="models")
 
     color_id = Column(Integer, ForeignKey("colors.id"))
-    color = relationship("Colors", back_populates="devices")
+    color = relationship("Colors", back_populates="models")
 
-    description = Column(String(500), nullable=True)
+    def __str__(self):
+        return self.name
 
-    images = relationship("DeviceImages", back_populates="device", cascade="all, delete-orphan")
-
-    variants = relationship("DeviceVariants", back_populates="device")
-
-class DeviceImages(Base):
-    __tablename__ = "device_images"
-
+class ModelsImages(Base):
+    __tablename__ = "models_images"
     id = Column(Integer, primary_key=True)
     path = Column(String, nullable=False)
     is_main = Column(Boolean, default=False)
 
-    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"))
-    device = relationship("Devices", back_populates="images")
+    model_id = Column(Integer, ForeignKey("models.id", ondelete="CASCADE"))
+    model = relationship("Models", back_populates="images")
 
 class Colors(Base):
     __tablename__ = "colors"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False, unique=True)
-    devices = relationship("Devices", back_populates="color")
+    models = relationship("Models", back_populates="color")
+
+    def __str__(self):
+        return self.name
 
 #Таблица характеристика устройства
-class DeviceVariants(Base):
-    __tablename__ = "device_variants"
-    __table_args__ = (UniqueConstraint("device_id", "sim", "memory", name="uix_device_variant"),)
+class ModelVariants(Base):
+    __tablename__ = "model_variants"
+    __table_args__ = (UniqueConstraint("model_id", "sim_id", "memory_id", name="uix_device_variant"),)
     id = Column(Integer, primary_key=True, autoincrement=True)
-    sim = Column(String(20), nullable=True)
-    memory = Column(String(100), nullable=True)
     price = Column(DECIMAL(12, 2), nullable=False)
+    is_active = Column(Boolean, default=True)
 
-    device_id = Column(Integer, ForeignKey("devices.id"))
-    device = relationship("Devices", back_populates="variants")
+    sim_id = Column(Integer, ForeignKey("sim_cards.id"), nullable=True)
+    sim = relationship("SimCards")
+
+    memory_id = Column(Integer, ForeignKey("memory_storage.id"), nullable=True)
+    memory = relationship("MemoryStorage")
+
+    model_id = Column(Integer, ForeignKey("models.id"))
+    model = relationship("Models", back_populates="model_variants")
+
+    def __str__(self):
+        return f"Sim: {self.sim}, Память: {self.memory}, Цена: {self.price} руб"
+
+class SimCards(Base):
+    __tablename__ = "sim_cards"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(50), nullable=False, unique=True)
+
+
+class MemoryStorage(Base):
+    __tablename__ = "memory_storage"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(50), nullable=False, unique=True)
+    quantity = Column(Integer)
 
 class Customers(Base):
     __tablename__ = "customers"
@@ -115,11 +134,13 @@ class CartItems(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     user_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
-    variant_id = Column(Integer, ForeignKey("device_variants.id"), nullable=False)
+
     quantity = Column(Integer, default=1)
 
     customer = relationship("Customers", back_populates="cart_items")
-    variant = relationship("DeviceVariants")
+
+    model_variant = relationship("ModelVariants")
+    model_variant_id = Column(Integer, ForeignKey("model_variants.id"), nullable=False)
 
 class Orders(Base):
     __tablename__ = "orders"
@@ -136,13 +157,12 @@ class Orders(Base):
 class OrderItems(Base):
     __tablename__ = "order_items"
     id = Column(Integer, primary_key=True, autoincrement=True)
-
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
-    variant_id = Column(Integer, ForeignKey("device_variants.id"), nullable=False)
     quantity = Column(Integer, default=1)
 
     order = relationship("Orders", back_populates="items")
-    variant = relationship("DeviceVariants")
+    model_variant = relationship("ModelVariants")
+    model_variant_id = Column(Integer, ForeignKey("model_variants.id"), nullable=False)
 
 Base.metadata.create_all(engine)
 
