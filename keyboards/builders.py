@@ -1,18 +1,17 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 from data.model import (
-        session,
-        Categories,
-        Manufacturers,
-        Models,
-        manufacturer_category,
-        Devices,
-        Colors,
-    )
-from data.crud import count_device_variants, query_device_variants
+    session,
+    Categories,
+    Manufacturers,
+    Models,
+    manufacturer_category,
+    Colors, ModelVariants,
+)
+from data.crud import count_models_variants, query_models_variants
 from keyboards.inline import main_menu_button, back_button
 from sqlalchemy import desc
 
-MAX_PAGE_SIZE = 8
+MAX_PAGE_SIZE = 2
 
 def categories_kb(page=0 ,page_size: int=MAX_PAGE_SIZE):
     categories_count = session.query(Categories).count()
@@ -69,18 +68,21 @@ def models_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size: 
     return builder.as_markup()
 
 def colors_kb(model_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
-    colors_count = (
+    subquery = (
         session.query(Colors.id)
-        .join(Devices, Devices.color_id == Colors.id)
-        .filter(Devices.model_id == model_id)
+        .join(ModelVariants, ModelVariants.color_id == Colors.id)
+        .filter(ModelVariants.model_id == model_id)
         .distinct()
-        .count()
+        .subquery()
     )
+    colors_count = session.query(subquery.c.id).count()
+
     page, total_pages = count_pages(colors_count, page_size, page)
+
     colors = (
         session.query(Colors)
-        .join(Devices, Devices.color_id == Colors.id)
-        .filter(Devices.model_id == model_id)
+        .join(ModelVariants, ModelVariants.color_id == Colors.id)
+        .filter(ModelVariants.model_id == model_id)
         .distinct()
         .order_by(Colors.name)
         .offset(page * page_size)
@@ -101,13 +103,15 @@ def colors_kb(model_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
     return builder.as_markup()
 
 def variants_kb(model_id, color_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
-    variants_count = count_device_variants(model_id, color_id)
+    variants_count = count_models_variants(model_id, color_id)
     page, total_pages = count_pages(variants_count, page_size, page)
-    variants = query_device_variants(model_id, color_id, page * page_size, page_size)
+    variants = query_models_variants(model_id, color_id, page * page_size, page_size)
 
     builder = InlineKeyboardBuilder()
     for variant in variants:
-        builder.button(text=f"{variant.sim}, {variant.memory}, {variant.price}", callback_data=f"variant_{variant.id}")
+        text = ("" + f"{variant.sim} " if variant.sim else "" +
+                f"{variant.memory} " if variant.memory else "" + f"{variant.price} руб" if variant.price else "")
+        builder.button(text=text, callback_data=f"variant_{variant.id}")
     builder.adjust(1)
 
     pg_buttons = make_pagination_buttons("pg_variant", [model_id, color_id], total_pages, page)
