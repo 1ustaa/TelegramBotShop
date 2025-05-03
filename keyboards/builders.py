@@ -12,13 +12,11 @@ from data.crud import count_device_variants, query_device_variants
 from keyboards.inline import main_menu_button, back_button
 from sqlalchemy import desc
 
-MAX_PAGE_SIZE = 6
+MAX_PAGE_SIZE = 8
 
 def categories_kb(page=0 ,page_size: int=MAX_PAGE_SIZE):
     categories_count = session.query(Categories).count()
-    total_pages = (categories_count + page_size - 1) // page_size
-
-    page = page % total_pages
+    page, total_pages= count_pages(categories_count, page_size, page)
     categories = session.query(Categories).offset(page * page_size).limit(page_size).all()
 
     builder = InlineKeyboardBuilder()
@@ -36,9 +34,7 @@ def categories_kb(page=0 ,page_size: int=MAX_PAGE_SIZE):
 def manufacturer_kb(category_id, page = 0, page_size: int=MAX_PAGE_SIZE):
     manufacturer_count = session.query(Manufacturers).join(manufacturer_category).filter(
         manufacturer_category.c.category_id == category_id).count()
-    total_pages = (manufacturer_count + page_size - 1) // page_size
-
-    page = page % total_pages
+    page, total_pages = count_pages(manufacturer_count, page_size, page)
     manufacturers = session.query(Manufacturers).join(manufacturer_category).filter(
         manufacturer_category.c.category_id == category_id).offset(page * page_size).limit(page_size).all()
 
@@ -56,9 +52,7 @@ def manufacturer_kb(category_id, page = 0, page_size: int=MAX_PAGE_SIZE):
 
 def models_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size: int=MAX_PAGE_SIZE):
     models_count = session.query(Models).filter_by(category_id=category_id, manufacturer_id=manufacturer_id).count()
-    total_pages = (models_count + page_size - 1) // page_size
-
-    page = page % total_pages
+    page, total_pages = count_pages(models_count, page_size, page)
     models = session.query(Models).filter_by(category_id=category_id, manufacturer_id=manufacturer_id) \
         .order_by(desc(Models.name)).offset(page * page_size).limit(page_size).all()
 
@@ -75,7 +69,6 @@ def models_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size: 
     return builder.as_markup()
 
 def colors_kb(model_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
-
     colors_count = (
         session.query(Colors.id)
         .join(Devices, Devices.color_id == Colors.id)
@@ -83,9 +76,7 @@ def colors_kb(model_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
         .distinct()
         .count()
     )
-    total_pages = (colors_count + page_size - 1) // page_size
-    page = page % total_pages
-
+    page, total_pages = count_pages(colors_count, page_size, page)
     colors = (
         session.query(Colors)
         .join(Devices, Devices.color_id == Colors.id)
@@ -111,10 +102,7 @@ def colors_kb(model_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
 
 def variants_kb(model_id, color_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
     variants_count = count_device_variants(model_id, color_id)
-
-    total_pages = (variants_count + page_size - 1) // page_size
-    page = page % total_pages
-
+    page, total_pages = count_pages(variants_count, page_size, page)
     variants = query_device_variants(model_id, color_id, page * page_size, page_size)
 
     builder = InlineKeyboardBuilder()
@@ -128,8 +116,6 @@ def variants_kb(model_id, color_id, page: int = 0, page_size: int=MAX_PAGE_SIZE)
     builder.row(back_button())
     builder.row(main_menu_button())
     return builder.as_markup()
-
-
 
 def make_pagination_buttons(prefix: str, items: list, total_pages: int, page: int) -> list:
     """
@@ -163,3 +149,8 @@ def make_pagination_buttons(prefix: str, items: list, total_pages: int, page: in
             )
         )
     return pagination_buttons
+
+def count_pages(count, page_size, page):
+    total_pages = (count + page_size - 1) // page_size
+    page = page % total_pages if total_pages > 0 else 0
+    return page, total_pages
