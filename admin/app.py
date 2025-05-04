@@ -1,14 +1,15 @@
 from flask import Flask
 from flask_appbuilder import AppBuilder, SQLA
 from config_reader import db_link
-from views import (CategoriesView,
+from admin.views import (CategoriesView,
                    ManufacturersView,
                    ModelsView,
                    ColorsView,
                    SimCardsView,
                    MemoryStorageView,
                    ModelVariantsView,
-                   ModelsImagesView)
+                   ModelsImagesView,
+                   DiagonalsView)
 
 
 app = Flask(__name__)
@@ -26,6 +27,7 @@ appbuilder.add_view(ModelsImagesView, "Изображения")
 appbuilder.add_view(ColorsView, "Цвета")
 appbuilder.add_view(SimCardsView, "Сим-карты")
 appbuilder.add_view(MemoryStorageView, "Память")
+appbuilder.add_view(DiagonalsView, "Диагонали")
 
 
 if __name__ == "__main__":

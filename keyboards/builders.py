@@ -5,7 +5,8 @@ from data.model import (
     Manufacturers,
     Models,
     manufacturer_category,
-    Colors, ModelVariants,
+    Colors,
+    ModelVariants
 )
 from data.crud import count_models_variants, query_models_variants
 from keyboards.inline import main_menu_button, back_button
@@ -109,8 +110,12 @@ def variants_kb(model_id, color_id, page: int = 0, page_size: int=MAX_PAGE_SIZE)
 
     builder = InlineKeyboardBuilder()
     for variant in variants:
-        text = ("" + f"{variant.sim} " if variant.sim else "" +
-                f"{variant.memory} " if variant.memory else "" + f"{variant.price} руб" if variant.price else "")
+        text = "".join([
+            f"{variant.memory} " if variant.memory else "",
+            f"{variant.sim} " if variant.sim else "",
+            f"{variant.diagonal} " if variant.diagonal else "",
+            f"{variant.price} руб " if variant.price else ""
+        ]).strip()
         builder.button(text=text, callback_data=f"variant_{variant.id}")
     builder.adjust(1)
 

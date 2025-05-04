@@ -15,6 +15,7 @@ def query_models_variants(model_id: int, color_id:int, offset: int, limit: int):
     """
     stmt = (
         select(
+            Diagonals.name.label("diagonal"),
             SimCards.name.label("sim"),
             MemoryStorage.name.label("memory"),
             ModelVariants.price.label("price"),
@@ -23,10 +24,16 @@ def query_models_variants(model_id: int, color_id:int, offset: int, limit: int):
         .select_from(ModelVariants)
         .outerjoin(SimCards, ModelVariants.sim_id == SimCards.id)
         .outerjoin(MemoryStorage, ModelVariants.memory_id == MemoryStorage.id)
-        .filter(ModelVariants.model_id == model_id, ModelVariants.color_id == color_id)
+        .outerjoin(Diagonals, ModelVariants.diagonal_id == Diagonals.id)
+        .filter(
+            ModelVariants.model_id == model_id,
+            ModelVariants.color_id == color_id,
+            ModelVariants.is_active == True)
         .order_by(
             MemoryStorage.quantity,
             SimCards.name)
+        .offset(offset)
+        .limit(limit)
     )
 
     return session.execute(stmt).mappings().all()
@@ -54,7 +61,7 @@ def get_color_model_image(model_id, color_id):
     if model and color:
         image = (
             session.query(ModelsImages)
-            .filter_by(id=model.id, color_id=color.id)
+            .filter_by(model_id=model.id, color_id=color.id)
             .first()
         )
         if image:

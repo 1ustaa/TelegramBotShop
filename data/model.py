@@ -78,7 +78,7 @@ class Models(Base):
 
 class ModelsImages(Base):
     __tablename__ = "models_images"
-    __table_args__ = (UniqueConstraint("model_id", "color_id", "path", name="uix_images_variant"),)
+    __table_args__ = (UniqueConstraint("model_id", "color_id", name="uix_images_variant"),)
     id = Column(Integer, primary_key=True)
     path = Column(String, nullable=False)
     is_main = Column(Boolean, default=False)
@@ -99,11 +99,14 @@ class Colors(Base):
     def __str__(self):
         return self.name
 
+    def __repr__(self):
+        return self.name
+
 #Таблица характеристика устройства
 #TODO: подумать какие еще характеристики могут пригодиться так как будут не только телефоны, но и наушники часы и так далее, например диагональ экрана для часов
 class ModelVariants(Base):
     __tablename__ = "model_variants"
-    __table_args__ = (UniqueConstraint("model_id", "sim_id", "memory_id", name="uix_device_variant"),)
+    __table_args__ = (UniqueConstraint("model_id", "sim_id", "memory_id", "color_id", "diagonal_id", name="uix_device_variant"),)
     id = Column(Integer, primary_key=True, autoincrement=True)
     price = Column(Integer, nullable=False)
     description = Column(String(500), nullable=True)
@@ -118,6 +121,9 @@ class ModelVariants(Base):
     model_id = Column(Integer, ForeignKey("models.id"))
     model = relationship("Models", back_populates="model_variants")
 
+    diagonal_id = Column(Integer, ForeignKey("diagonals.id"))
+    diagonal = relationship("Diagonals")
+
     color_id = Column(Integer, ForeignKey("colors.id"))
     color = relationship("Colors", back_populates="variants")
 
@@ -129,12 +135,35 @@ class SimCards(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(50), nullable=False, unique=True)
 
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.name
 
 class MemoryStorage(Base):
     __tablename__ = "memory_storage"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(50), nullable=False, unique=True)
     quantity = Column(Integer)
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.name
+
+class Diagonals(Base):
+    __tablename__ = "diagonals"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(50), nullable=False, unique=True)
+    quantity = Column(Integer)
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.name
 
 class Customers(Base):
     __tablename__ = "customers"

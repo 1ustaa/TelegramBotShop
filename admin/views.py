@@ -15,8 +15,8 @@ from data.model import (Categories,
                         SimCards,
                         MemoryStorage,
                         ModelVariants,
-                        ModelsImages
-                        )
+                        ModelsImages,
+                        Diagonals)
 
 class CategoriesView(ModelView):
     datamodel = SQLAInterface(Categories)
@@ -81,14 +81,22 @@ class MemoryStorageView(ModelView):
     label_columns = {"name": "Память",
                      "quantity": "Количество Gb"}
 
+class DiagonalsView(ModelView):
+    datamodel = SQLAInterface(Diagonals)
+
+    list_columns = ["name", "quantity"]
+    label_columns = {"name": "Диагональ",
+                     "quantity": "Количество дюймов"}
+
 class ModelVariantsView(ModelView):
     datamodel = SQLAInterface(ModelVariants)
 
-    list_columns = ["model", "color", "sim", "memory", "price", "description", "is_active"]
+    list_columns = ["model", "color", "sim", "memory", "diagonal", "price", "description", "is_active"]
     label_columns = {"model": "Устройство",
                      "color": "Цвет",
                      "sim": "Сим-карта",
                      "memory": "Память",
+                     "diagonal": "Диагональ",
                      "price": "Цена",
                      "description": "Описание",
                      "is_active": "Активно"

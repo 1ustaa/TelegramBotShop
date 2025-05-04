@@ -171,12 +171,12 @@ async def process_variant_selection(callback: types.CallbackQuery, state: FSMCon
         photo = FSInputFile(image_path)
         await callback.message.edit_media(
                 media=InputMediaPhoto(media=photo, caption=f"<b>{model_name} {color_name}</b>"
-                                                           "\nНажмите на кнопку с ценой, \nчто бы добавить его в корзину"),
+                                                           "\nНажмите на кнопку с ценой, \nчто бы добавить товар в корзину"),
                 reply_markup=keyboards.builders.variants_kb(model_id, color_id)
         )
     else:
         await callback.message.edit_text(
-                f"<b>{model_name} {color_name}</b>\nНажмите на кнопку с ценой, \nчто бы добавить его в корзину",
+                f"<b>{model_name} {color_name}</b>\nНажмите на кнопку с ценой, \nчто бы добавить товар в корзину",
                 reply_markup=keyboards.builders.variants_kb(model_id ,color_id)
         )
 
@@ -205,12 +205,12 @@ async def process_variant_pagination(callback: types.CallbackQuery, state: FSMCo
         photo = FSInputFile(image_path)
         await callback.message.edit_media(
             media=InputMediaPhoto(media=photo, caption=f"<b>{model_name} {color_name}</b>"
-                                                       "\nНажмите на кнопку с ценой, \nчто бы добавить его в корзину"),
+                                                       "\nНажмите на кнопку с ценой, \nчто бы добавить товар в корзину"),
             reply_markup=keyboards.builders.variants_kb(model_id, color_id, page)
         )
     else:
         await callback.message.edit_text(
-            f"<b>{model_name} {color_name}</b>\nНажмите на кнопку с ценой, \nчто бы добавить его в корзину",
+            f"<b>{model_name} {color_name}</b>\nНажмите на кнопку с ценой, \nчто бы добавить товар в корзину",
             reply_markup=keyboards.builders.variants_kb(model_id, color_id, page)
         )
     await callback.answer()
