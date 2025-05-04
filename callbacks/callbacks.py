@@ -8,7 +8,7 @@ import keyboards
 from states.states import ChoseDevice, push_state, pop_state, state_handlers
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
-from data.crud import get_color_model_image, add_new_customer, add_cart_item, get_cart_items
+from data.crud import get_color_model_image, add_new_customer, add_cart_item, get_cart_items, count_cart_sum
 
 router = Router()
 
@@ -224,8 +224,8 @@ async def add_item_in_cart(callback: types.CallbackQuery, state: FSMContext):
     variant_id = data_split[1]
     user_id = callback.from_user.id
     username = callback.from_user.username or "Без имени"
-    add_new_customer(user_id, username)
-    add_cart_item(variant_id, user_id)
+    customer = add_new_customer(user_id, username)
+    add_cart_item(variant_id, customer.telegram_id)
 
     data = await state.get_data()
     model_id = data.get("chosen_model")
@@ -279,9 +279,23 @@ async def safe_edit_message(callback: types.CallbackQuery, text: str=None, reply
 @router.callback_query(F.data == "cart")
 async def show_cart(callback: types.CallbackQuery):
     cart_items = get_cart_items(callback.from_user.id)
-    text = [f'{item["model"]} {item["color"]} {item["sim"]} {item["memory"]} {item["price"]}'
-            f'{item["quantity"]} {item["sum"]}\n' for item in cart_items]
-    await callback.message.edit_text("🛒 Ваша корзина:\n\n" + "".join(text))
+    cart_sum = count_cart_sum(callback.from_user.id)
+
+    text = (
+        "Ваша 🛒:\n\n" + "\n\n"
+        .join(["".join([
+        f"<b>{item.model} </b>" if item.model else "",
+        f"<b>{item.color} </b>" if item.color else "",
+        f"<b>{item.sim} </b>" if item.sim else "",
+        f"<b>{item.memory} </b>" if item.memory else "",
+        # f"{item.price} " if item.price else "",
+        "- ",
+        f"{item.quantity } шт. " if item.quantity else "",
+        f"сумма: {item.sum} руб " if item.sum else "",
+        ]).strip() for item in cart_items]) + f"\n\n<b>Общая сумма: {cart_sum} руб</b>"
+    )
+
+    await callback.message.edit_text(text)
 
 # callback для кнопки главное меню
 @router.callback_query(F.data == "main_menu", StateFilter("*"))

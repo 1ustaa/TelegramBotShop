@@ -1,6 +1,6 @@
 from data.model import *
 import csv
-from sqlalchemy import select
+from sqlalchemy import select, func
 from config_reader import base_dir
 import os
 
@@ -70,23 +70,28 @@ def get_color_model_image(model_id, color_id):
     return model_name, color_name, image
 
 def get_cart_items(user_id):
+
     stmt = (
         select(
             Models.name.label("model"),
             Colors.name.label("color"),
-            DeviceVariants.sim,
-            DeviceVariants.memory,
-            DeviceVariants.price,
-            CartItems.quantity,
-            (DeviceVariants.price * CartItems.quantity).label("sum")
+            SimCards.name.label("sim"),
+            MemoryStorage.name.label("memory"),
+            Diagonals.name.label("diagonal"),
+            ModelVariants.price,
+            (ModelVariants.price * CartItems.quantity).label("sum"),
+            CartItems.quantity
         )
         .select_from(CartItems)
-        .join(DeviceVariants, CartItems.variant_id == DeviceVariants.id)
-        .join(Devices, DeviceVariants.device_id == Devices.id)
-        .join(Models, Devices.model_id == Models.id)
-        .join(Colors, Devices.color_id == Colors.id)
+        .outerjoin(ModelVariants, CartItems.model_variant_id == ModelVariants.id)
+        .outerjoin(SimCards, ModelVariants.sim_id == SimCards.id)
+        .outerjoin(Models, ModelVariants.model_id == Models.id)
+        .outerjoin(Colors, ModelVariants.color_id == Colors.id)
+        .outerjoin(MemoryStorage, ModelVariants.memory_id == MemoryStorage.id)
+        .outerjoin(Diagonals, ModelVariants.diagonal_id == Diagonals.id)
         .where(CartItems.user_id == user_id)
     )
+
     result = session.execute(stmt)
     cart_items = result.mappings().all()
     return cart_items
@@ -97,12 +102,26 @@ def add_new_customer(user_id: int, username: str):
         customer = Customers(telegram_id=user_id, username=username)
         session.add(customer)
         session.commit()
+    return customer
 
 def add_cart_item(variant_id, user_id):
-    cart_item = session.query(CartItems).filter_by(user_id=user_id, variant_id=variant_id).first()
+    cart_item = session.query(CartItems).filter_by(user_id=user_id, model_variant_id=variant_id).first()
     if cart_item:
         cart_item.quantity += 1
     else:
-        cart_item = CartItems(user_id=user_id, variant_id=variant_id, quantity=1)
+        cart_item = CartItems(user_id=user_id, model_variant_id=variant_id, quantity=1)
         session.add(cart_item)
     session.commit()
+
+def count_cart_sum(user_id):
+    stmt = (
+        select(
+            func.sum(CartItems.quantity * ModelVariants.price).label("total_sum")
+        )
+        .select_from(CartItems)
+        .outerjoin(ModelVariants, CartItems.model_variant_id == ModelVariants.id)
+        .where(CartItems.user_id == user_id)
+    )
+
+    result = session.execute(stmt).scalar()
+    return result or 0

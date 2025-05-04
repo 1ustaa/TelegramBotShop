@@ -177,11 +177,9 @@ class Customers(Base):
 class CartItems(Base):
     __tablename__ = "cart_items"
     id = Column(Integer, primary_key=True, autoincrement=True)
-
-    user_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    user_id = Column(BigInteger, ForeignKey("customers.telegram_id"), nullable=False)
 
     quantity = Column(Integer, default=1)
-
     customer = relationship("Customers", back_populates="cart_items")
 
     model_variant = relationship("ModelVariants")
