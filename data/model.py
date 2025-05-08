@@ -14,7 +14,6 @@ from sqlalchemy.orm import sessionmaker, relationship, declarative_base
 from config_reader import db_link
 from datetime import datetime
 
-
 Base = declarative_base()
 
 engine = create_engine(db_link)

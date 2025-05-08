@@ -12,7 +12,7 @@ from data.crud import count_models_variants, query_models_variants
 from keyboards.inline import main_menu_button, back_button
 from sqlalchemy import desc
 
-MAX_PAGE_SIZE = 2
+MAX_PAGE_SIZE = 6
 
 def categories_kb(page=0 ,page_size: int=MAX_PAGE_SIZE):
     categories_count = session.query(Categories).count()
@@ -106,7 +106,7 @@ def colors_kb(model_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
 def variants_kb(model_id, color_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
     variants_count = count_models_variants(model_id, color_id)
     page, total_pages = count_pages(variants_count, page_size, page)
-    variants = query_models_variants(model_id, color_id, page * page_size, page_size)
+    variants = query_models_variants(model_id, color_id, None, page * page_size, page_size)
 
     builder = InlineKeyboardBuilder()
     for variant in variants:

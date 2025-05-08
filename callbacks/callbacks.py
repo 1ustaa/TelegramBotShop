@@ -3,12 +3,19 @@ import os.path
 from aiogram import F, types, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import FSInputFile, InputMediaPhoto
+from markdown_it.rules_core import inline
 
 import keyboards
 from states.states import ChoseDevice, push_state, pop_state, state_handlers
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
-from data.crud import get_color_model_image, add_new_customer, add_cart_item, get_cart_items, count_cart_sum
+from data.crud import (get_color_model_image,
+                       add_new_customer,
+                       add_cart_item,
+                       get_cart_items,
+                       count_cart_sum,
+                       query_models_variants,
+                       clear_user_cart)
 
 router = Router()
 
@@ -221,7 +228,11 @@ async def process_variant_pagination(callback: types.CallbackQuery, state: FSMCo
 )
 async def add_item_in_cart(callback: types.CallbackQuery, state: FSMContext):
     data_split = callback.data.split("_")
-    variant_id = data_split[1]
+    try:
+        variant_id = int(data_split[1])
+    except (IndexError, ValueError):
+        await callback.answer("Некорректные данные.")
+        return
     user_id = callback.from_user.id
     username = callback.from_user.username or "Без имени"
     customer = add_new_customer(user_id, username)
@@ -232,23 +243,35 @@ async def add_item_in_cart(callback: types.CallbackQuery, state: FSMContext):
     color_id = data.get("chosen_color")
 
     model_name, color_name, image_path = get_color_model_image(model_id, color_id)
+    variants = query_models_variants(model_id, color_id, variant_id)
 
-    if image_path and os.path.exists(image_path):
-        photo = FSInputFile(image_path)
-        await callback.message.edit_media(
-            media=InputMediaPhoto(media=photo, caption="Товар добавлен в корзину \n"
-                                                       "Что бы посмотреть корзину перейдите в главное меню"),
-            reply_markup=keyboards.builders.variants_kb(model_id, color_id)
-        )
-    else:
-        await callback.message.edit_text(
-            "Товар добавлен в корзину \n"
-            "Что бы посмотреть корзину перейдите в главное меню",
-            reply_markup=keyboards.builders.variants_kb(model_id, color_id)
-        )
-
+    text_variant = ""
+    for variant in variants:
+        text_variant = "".join([
+            f"{variant.memory} " if variant.memory else "",
+            f"{variant.sim} " if variant.sim else "",
+            f"{variant.diagonal} " if variant.diagonal else ""
+        ]).strip()
+    text = (f"Товар <b>{model_name} {color_name} {text_variant}</b>\n Добавлен в корзину \n "
+            f"Что бы посмотреть корзину перейдите в главное меню")
+    try:
+        if image_path and os.path.exists(image_path):
+            photo = FSInputFile(image_path)
+            await callback.message.edit_media(
+                media=InputMediaPhoto(media=photo, caption=text),
+                reply_markup=keyboards.builders.variants_kb(model_id, color_id)
+            )
+        else:
+            await callback.message.edit_text(
+                text=text,
+                reply_markup=keyboards.builders.variants_kb(model_id, color_id)
+            )
+    except TelegramBadRequest as e:
+        if "message is not modified" in str(e):
+            pass
+        else:
+            raise
     await callback.answer()
-
 
 
 async def safe_edit_message(callback: types.CallbackQuery, text: str=None, reply_markup=None, media=None):
@@ -281,21 +304,31 @@ async def show_cart(callback: types.CallbackQuery):
     cart_items = get_cart_items(callback.from_user.id)
     cart_sum = count_cart_sum(callback.from_user.id)
 
-    text = (
-        "Ваша 🛒:\n\n" + "\n\n"
-        .join(["".join([
-        f"<b>{item.model} </b>" if item.model else "",
-        f"<b>{item.color} </b>" if item.color else "",
-        f"<b>{item.sim} </b>" if item.sim else "",
-        f"<b>{item.memory} </b>" if item.memory else "",
-        # f"{item.price} " if item.price else "",
-        "- ",
-        f"{item.quantity } шт. " if item.quantity else "",
-        f"сумма: {item.sum} руб " if item.sum else "",
-        ]).strip() for item in cart_items]) + f"\n\n<b>Общая сумма: {cart_sum} руб</b>"
-    )
+    if cart_items and cart_sum:
+        text = (
+            "Ваша 🛒:\n\n" + "\n\n"
+            .join(["".join([
+            f"<b>{item.model} </b>" if item.model else "",
+            f"<b>{item.color} </b>" if item.color else "",
+            f"<b>{item.sim} </b>" if item.sim else "",
+            f"<b>{item.memory} </b>" if item.memory else "",
+            # f"{item.price} " if item.price else "",
+            "- ",
+            f"{item.quantity } шт. " if item.quantity else "",
+            f"сумма: {item.sum} руб " if item.sum else "",
+            ]).strip() for item in cart_items]) + f"\n\n<b>Общая сумма: {cart_sum} руб</b>"
+        )
+    else:
+        text = "Ваша 🛒:\n\n" + "В вашей корзине пока что нет товаров"
 
-    await callback.message.edit_text(text)
+    await callback.message.edit_text(text, reply_markup=keyboards.inline.kart_kb)
+
+#callback для удаления товаров из корзины
+@router.callback_query(F.data == "drop_kart")
+async def clear_user_cart_items(callback: types.CallbackQuery):
+    clear_user_cart(callback.from_user.id)
+    text = "Ваша корзина очищена"
+    await callback.message.edit_text(text, reply_markup=keyboards.inline.kart_kb)
 
 # callback для кнопки главное меню
 @router.callback_query(F.data == "main_menu", StateFilter("*"))

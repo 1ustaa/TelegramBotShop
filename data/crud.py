@@ -1,14 +1,19 @@
+from httpx import delete
+from marshmallow_sqlalchemy import SQLAlchemySchema
+from sqlalchemy.exc import SQLAlchemyError
+
 from data.model import *
 import csv
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from config_reader import base_dir
 import os
 
-def query_models_variants(model_id: int, color_id:int, offset: int, limit: int):
+def query_models_variants(model_id: int, color_id:int, variant_id: int=None, offset: int=None, limit: int=None):
     """
 
     :param model_id: int айди модели устройства
     :param color_id: int айди цвета устройства
+    :param variant_id: int айди варианта устройства
     :param offset: int с какой записи выбирать
     :param limit: int ограничение по количеству записей
     :return: все варианты устройств с отбором по модели по цвету
@@ -32,9 +37,13 @@ def query_models_variants(model_id: int, color_id:int, offset: int, limit: int):
         .order_by(
             MemoryStorage.quantity,
             SimCards.name)
-        .offset(offset)
-        .limit(limit)
     )
+    if variant_id is not None:
+        stmt = stmt.filter(ModelVariants.id == variant_id)
+    if offset is not None:
+        stmt = stmt.offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
 
     return session.execute(stmt).mappings().all()
 
@@ -97,21 +106,29 @@ def get_cart_items(user_id):
     return cart_items
 
 def add_new_customer(user_id: int, username: str):
-    customer = session.query(Customers).filter_by(telegram_id=user_id).first()
-    if not customer:
-        customer = Customers(telegram_id=user_id, username=username)
-        session.add(customer)
-        session.commit()
-    return customer
+    try:
+        customer = session.query(Customers).filter_by(telegram_id=user_id).first()
+        if not customer:
+            customer = Customers(telegram_id=user_id, username=username)
+            session.add(customer)
+            session.commit()
+        return customer
+    except SQLAlchemyError as e:
+        session.rollback()
+        print(f"Ошибка добавления нового пользователя {user_id}: {e}")
 
 def add_cart_item(variant_id, user_id):
-    cart_item = session.query(CartItems).filter_by(user_id=user_id, model_variant_id=variant_id).first()
-    if cart_item:
-        cart_item.quantity += 1
-    else:
-        cart_item = CartItems(user_id=user_id, model_variant_id=variant_id, quantity=1)
-        session.add(cart_item)
-    session.commit()
+    try:
+        cart_item = session.query(CartItems).filter_by(user_id=user_id, model_variant_id=variant_id).first()
+        if cart_item:
+            cart_item.quantity += 1
+        else:
+            cart_item = CartItems(user_id=user_id, model_variant_id=variant_id, quantity=1)
+            session.add(cart_item)
+        session.commit()
+    except SQLAlchemyError as e:
+        session.rollback()
+        print(f"Ошибка добавления варианта в корзину {variant_id}: {e}")
 
 def count_cart_sum(user_id):
     stmt = (
@@ -125,3 +142,12 @@ def count_cart_sum(user_id):
 
     result = session.execute(stmt).scalar()
     return result or 0
+
+def clear_user_cart(user_id):
+    try:
+        stmt = delete(CartItems).where(CartItems.user_id == user_id)
+        session.execute(stmt)
+        session.commit()
+    except SQLAlchemyError as e:
+        session.rollback()
+        print(f"Error clearing cart for user {user_id}: {e}")
