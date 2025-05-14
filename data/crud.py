@@ -155,6 +155,7 @@ def make_order(user_id, total_price, date):
     try:
         order = Orders(customer_id=user_id, created_at=date, status="в работе", total_price=total_price)
         session.add(order)
+        session.flush()
 
         stmt = (
             select(
@@ -166,6 +167,11 @@ def make_order(user_id, total_price, date):
         )
         result = session.execute(stmt)
         cart_items = result.mappings().all()
+
+        if not cart_items:
+            print("Корзина пуста — заказ не создан.")
+            session.rollback()
+            return None
 
         for cart_item in cart_items:
             order_item = OrderItems(
