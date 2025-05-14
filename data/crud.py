@@ -1,10 +1,8 @@
 from httpx import delete
-from marshmallow_sqlalchemy import SQLAlchemySchema
 from sqlalchemy.exc import SQLAlchemyError
 
 from data.model import *
-import csv
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, nullsfirst
 from config_reader import base_dir
 import os
 
@@ -150,4 +148,39 @@ def clear_user_cart(user_id):
         session.commit()
     except SQLAlchemyError as e:
         session.rollback()
-        print(f"Error clearing cart for user {user_id}: {e}")
+        print(f"Ошибка очистки корзины пользователя {user_id}: {e}")
+
+# TODO: Дописать функцию для создания заказов
+def make_order(user_id, total_price, date):
+    try:
+        order = Orders(customer_id=user_id, created_at=date, status="в работе", total_price=total_price)
+        session.add(order)
+
+        stmt = (
+            select(
+                CartItems.quantity,
+                CartItems.model_variant_id
+            )
+            .select_from(CartItems)
+            .where(CartItems.user_id == user_id)
+        )
+        result = session.execute(stmt)
+        cart_items = result.mappings().all()
+
+        for cart_item in cart_items:
+            order_item = OrderItems(
+                order_id=order.id,
+                quantity=cart_item.quantity,
+                model_variant_id=cart_item.model_variant_id)
+            session.add(order_item)
+
+        clear_user_cart(user_id)
+        session.commit()
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        print(f"Ошибка добавления предмета в заказ айди заказа: {e}")
+        return None
+
+    return order.id
+

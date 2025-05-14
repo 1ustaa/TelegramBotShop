@@ -1,3 +1,5 @@
+from operator import index
+
 from sqlalchemy import (
     create_engine,
     Column,
@@ -187,11 +189,11 @@ class CartItems(Base):
 class Orders(Base):
     __tablename__ = "orders"
     id = Column(Integer, primary_key=True, autoincrement=True)
-
-    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.now)
-    status = Column(String(50))
-    total_price = Column(DECIMAL(12, 2))
+    status_id = Column(Integer, ForeignKey("order_statuses.id"), nullable=True)
+    status = relationship("OrderStatuses")
+    total_price = Column(Integer, nullable=False)
 
     customer = relationship("Customers", back_populates="orders")
     items  = relationship("OrderItems", back_populates="order", cascade="all, delete-orphan")
@@ -199,12 +201,24 @@ class Orders(Base):
 class OrderItems(Base):
     __tablename__ = "order_items"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
     quantity = Column(Integer, default=1)
 
     order = relationship("Orders", back_populates="items")
     model_variant = relationship("ModelVariants")
     model_variant_id = Column(Integer, ForeignKey("model_variants.id"), nullable=False)
+
+class OrderStatuses(Base):
+    __tablename__ = "order_statuses"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(50), nullable=False, unique=True)
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.name
+
 
 Base.metadata.create_all(engine)
 
