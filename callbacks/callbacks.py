@@ -15,7 +15,10 @@ from data.crud import (get_color_model_image,
                        get_cart_items,
                        count_cart_sum,
                        query_models_variants,
-                       clear_user_cart)
+                       clear_user_cart,
+                       make_order,
+                       get_admins,
+                       get_order_details)
 
 router = Router()
 
@@ -330,6 +333,27 @@ async def clear_user_cart_items(callback: types.CallbackQuery):
     text = "Ваша корзина очищена"
     await callback.message.edit_text(text, reply_markup=keyboards.inline.kart_kb)
 
+# TODO доделать отправление заказа (администратору должно отправляться сообщение с содержимым заказа)
+#callback для создания заказа
+@router.callback_query(F.data == "make_order")
+async def send_order(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    date = callback.message.date
+    order = make_order(user_id, date)
+    if order:
+        send_message(order.id)
+        text = "Ваша заказ отправлен менеджеру в ближайшее время с вами свяжутся"
+    else:
+        text = "Ваша корзина пуста, для создания заказа необходимо добавить товар в корзину"
+    try:
+        await callback.message.edit_text(text, reply_markup=keyboards.inline.kart_kb)
+    except TelegramBadRequest as e:
+        if "message is not modified" in str(e):
+            pass
+        else:
+            raise
+    await callback.answer()
+
 # callback для кнопки главное меню
 @router.callback_query(F.data == "main_menu", StateFilter("*"))
 async def return_main_menu(callback: types.CallbackQuery, state: FSMContext):
@@ -397,3 +421,7 @@ async def process_category_selection(callback: types.CallbackQuery):
         else:
             raise
     await callback.answer()
+
+def send_message(order_id):
+    admins = get_admins()
+    get_order_details(order_id)

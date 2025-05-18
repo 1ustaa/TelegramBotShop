@@ -189,7 +189,7 @@ class CartItems(Base):
 class Orders(Base):
     __tablename__ = "orders"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.telegram_id"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.now)
     status_id = Column(Integer, ForeignKey("order_statuses.id"), nullable=True)
     status = relationship("OrderStatuses")
@@ -207,6 +207,12 @@ class OrderItems(Base):
     order = relationship("Orders", back_populates="items")
     model_variant = relationship("ModelVariants")
     model_variant_id = Column(Integer, ForeignKey("model_variants.id"), nullable=False)
+
+class Admins(Base):
+    __tablename__ = "admins"
+    id = Column(BigInteger, unique=True,  primary_key=True)
+    username = Column(String(100), nullable=True)
+    chat_id = Column(BigInteger, unique=True)
 
 class OrderStatuses(Base):
     __tablename__ = "order_statuses"

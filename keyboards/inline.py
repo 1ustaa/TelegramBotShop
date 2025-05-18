@@ -2,7 +2,6 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     InlineKeyboardButton
 )
-# TODO: Дописать клавиатуру для корзины
 
 def back_button(callback_data = "go_back"):
     return InlineKeyboardButton(text="Назад", callback_data=callback_data)

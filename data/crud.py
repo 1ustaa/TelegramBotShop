@@ -150,10 +150,13 @@ def clear_user_cart(user_id):
         session.rollback()
         print(f"Ошибка очистки корзины пользователя {user_id}: {e}")
 
-# TODO: Дописать функцию для создания заказов
-def make_order(user_id, total_price, date):
+def make_order(user_id, date):
     try:
-        order = Orders(customer_id=user_id, created_at=date, status="в работе", total_price=total_price)
+        total_price = count_cart_sum(user_id)
+        status = session.execute(
+            select(OrderStatuses).where(OrderStatuses.name.lower() == "в работе")
+        ).scalar_one_or_none()
+        order = Orders(customer_id=user_id, created_at=date, status=status, total_price=total_price)
         session.add(order)
         session.flush()
 
@@ -190,3 +193,18 @@ def make_order(user_id, total_price, date):
 
     return order.id
 
+def get_admins():
+    stmt = (
+        select(
+            Admins.username
+        ).select_from(Admins)
+    )
+
+    result = session.execute(stmt)
+    admins = result.mappings().all()
+
+    return admins
+
+# TODO: Дописать функцию для получения деталей заказа
+def get_order_details():
+    pass
