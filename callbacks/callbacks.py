@@ -1,9 +1,9 @@
 import os.path
 
-from aiogram import F, types, Router
+from aiogram import F, types, Router, Bot
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import FSInputFile, InputMediaPhoto
-from markdown_it.rules_core import inline
+
 
 import keyboards
 from states.states import ChoseDevice, push_state, pop_state, state_handlers
@@ -276,24 +276,33 @@ async def add_item_in_cart(callback: types.CallbackQuery, state: FSMContext):
             raise
     await callback.answer()
 
-
+#TODO доработать функцию исправить ошибку удаления сообщения через 48 часов
 async def safe_edit_message(callback: types.CallbackQuery, text: str=None, reply_markup=None, media=None):
     try:
         if media:
-            await callback.message.edit_media(
-                media=InputMediaPhoto(
-                    media=media,
-                    caption=text
-                ),
-                reply_markup=reply_markup
-            )
+            try:
+                await callback.message.edit_media(
+                    media=InputMediaPhoto(
+                        media=media,
+                        caption=text
+                    ),
+                    reply_markup=reply_markup
+                )
+            except Exception as e:
+                await callback.message.answer_photo(
+                        media=media,
+                        caption=text,
+                        reply_markup=reply_markup)
         else:
             await callback.message.edit_text(text, reply_markup=reply_markup)
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
             pass
         elif "there is no text in the message to edit" in str(e):
-            await callback.message.delete()
+            try:
+                await callback.message.delete()
+            except TelegramBadRequest as del_err:
+                if "message can't be deleted" in str(del_err):
             await callback.message.answer(
                 text=text,
                 reply_markup=reply_markup
@@ -333,15 +342,17 @@ async def clear_user_cart_items(callback: types.CallbackQuery):
     text = "Ваша корзина очищена"
     await callback.message.edit_text(text, reply_markup=keyboards.inline.kart_kb)
 
-# TODO доделать отправление заказа (администратору должно отправляться сообщение с содержимым заказа)
 #callback для создания заказа
 @router.callback_query(F.data == "make_order")
-async def send_order(callback: types.CallbackQuery):
+async def send_order(callback: types.CallbackQuery, bot: Bot):
     user_id = callback.from_user.id
+    username = callback.from_user.username
     date = callback.message.date
     order = make_order(user_id, date)
     if order:
-        send_message(order.id)
+        admins, text = make_message(order.id, username)
+        for admin in admins:
+            await bot.send_message(admin.id, text)
         text = "Ваша заказ отправлен менеджеру в ближайшее время с вами свяжутся"
     else:
         text = "Ваша корзина пуста, для создания заказа необходимо добавить товар в корзину"
@@ -353,6 +364,27 @@ async def send_order(callback: types.CallbackQuery):
         else:
             raise
     await callback.answer()
+
+def make_message(order_id, username):
+    admins = get_admins()
+    order_items = get_order_details(order_id)
+    text = (
+            f"Заказ № {order_id} от пользователя @{username}:\n\n" + "\n\n"
+            .join(["".join([
+        f"<b>{item.manufacturer} </b>" if item.manufacturer else "",
+        f"<b>{item.model} </b>" if item.model else "",
+        f"<b>{item.color} </b>" if item.color else "",
+        f"<b>{item.sim} </b>" if item.sim else "",
+        f"<b>{item.memory} </b>" if item.memory else "",
+        # f"{item.price} " if item.price else "",
+        "- ",
+        f"{item.quantity} шт. " if item.quantity else "",
+        f"сумма: {item.sum} руб " if item.sum else "" + "\n"
+    ]).strip() for item in order_items])
+    )
+    return admins, text
+
+
 
 # callback для кнопки главное меню
 @router.callback_query(F.data == "main_menu", StateFilter("*"))
@@ -422,6 +454,3 @@ async def process_category_selection(callback: types.CallbackQuery):
             raise
     await callback.answer()
 
-def send_message(order_id):
-    admins = get_admins()
-    get_order_details(order_id)

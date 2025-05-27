@@ -1,3 +1,4 @@
+import pandas as pd
 from httpx import delete
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -34,6 +35,7 @@ def query_models_variants(model_id: int, color_id:int, variant_id: int=None, off
             ModelVariants.is_active == True)
         .order_by(
             MemoryStorage.quantity,
+            Diagonals.name,
             SimCards.name)
     )
     if variant_id is not None:
@@ -97,6 +99,13 @@ def get_cart_items(user_id):
         .outerjoin(MemoryStorage, ModelVariants.memory_id == MemoryStorage.id)
         .outerjoin(Diagonals, ModelVariants.diagonal_id == Diagonals.id)
         .where(CartItems.user_id == user_id)
+        .order_by(
+            Models.name,
+            Colors.name,
+            SimCards.name,
+            MemoryStorage.name,
+            Diagonals.name,
+            ModelVariants.price)
     )
 
     result = session.execute(stmt)
@@ -154,7 +163,7 @@ def make_order(user_id, date):
     try:
         total_price = count_cart_sum(user_id)
         status = session.execute(
-            select(OrderStatuses).where(OrderStatuses.name.lower() == "в работе")
+            select(OrderStatuses).where(OrderStatuses.name == "В работе")
         ).scalar_one_or_none()
         order = Orders(customer_id=user_id, created_at=date, status=status, total_price=total_price)
         session.add(order)
@@ -191,12 +200,13 @@ def make_order(user_id, date):
         print(f"Ошибка добавления предмета в заказ айди заказа: {e}")
         return None
 
-    return order.id
+    return order
 
 def get_admins():
     stmt = (
         select(
-            Admins.username
+            Admins.username,
+            Admins.id
         ).select_from(Admins)
     )
 
@@ -205,6 +215,114 @@ def get_admins():
 
     return admins
 
-# TODO: Дописать функцию для получения деталей заказа
-def get_order_details():
-    pass
+def get_order_details(order_id):
+    stmt = (
+        select(
+            Manufacturers.name.label("manufacturer"),
+            Models.name.label("model"),
+            Colors.name.label("color"),
+            SimCards.name.label("sim"),
+            MemoryStorage.name.label("memory"),
+            Diagonals.name.label("diagonal"),
+            ModelVariants.price,
+            (ModelVariants.price * OrderItems.quantity).label("sum"),
+            OrderItems.quantity
+        )
+        .select_from(OrderItems)
+        .outerjoin(ModelVariants, OrderItems.model_variant_id == ModelVariants.id)
+        .outerjoin(SimCards, ModelVariants.sim_id == SimCards.id)
+        .outerjoin(Models, ModelVariants.model_id == Models.id)
+        .outerjoin(Manufacturers, Manufacturers.id == Models.manufacturer_id)
+        .outerjoin(Colors, ModelVariants.color_id == Colors.id)
+        .outerjoin(MemoryStorage, ModelVariants.memory_id == MemoryStorage.id)
+        .outerjoin(Diagonals, ModelVariants.diagonal_id == Diagonals.id)
+        .where(OrderItems.order_id == order_id)
+        .order_by(
+            Manufacturers.name,
+            Models.name,
+            Colors.name,
+            SimCards.name,
+            MemoryStorage.name,
+            Diagonals.name,
+            ModelVariants.price,
+            SimCards.name)
+    )
+
+    result = session.execute(stmt)
+    order_items = result.mappings().all()
+    return order_items
+
+def get_or_create(local_session, model, **kwargs):
+    instance = local_session.query(model).filter_by(**kwargs).first()
+    if instance:
+        return instance
+    instance = model(**kwargs)
+    local_session.add(instance)
+    local_session.commit()
+    return instance
+
+def import_from_excel(file_path):
+    local_session = Session(bind=engine)
+
+    xls = pd.read_excel(file_path, sheet_name=None)
+
+    for sheet_name, df in xls.items():
+        df.fillna("", inplace=True)
+
+        for _, row in df.iterrows():
+            try:
+                category = get_or_create(local_session, Categories, name=row["Категория"])
+                manufacturer = get_or_create(local_session, Manufacturers, name=row["Производитель"])
+
+                if category not in manufacturer.categories:
+                    manufacturer.categories.append(category)
+
+                model = local_session.query(Models).filter_by(name=row["Устройство"]).first()
+                if not model:
+                    model = Models(name=row["Устройство"], category=category, manufacturer=manufacturer)
+                    local_session.add(model)
+                    local_session.flush()
+
+                color = get_or_create(local_session, Colors, name=row["Цвет"])
+                sim = get_or_create(local_session, SimCards, name=row["SIM"]) if row["SIM"] else None
+                memory_str = int(row['Память']) if type(row['Память']) == int else row['Память']
+                memory = local_session.query(MemoryStorage).filter(MemoryStorage.name.like(f"%{memory_str}%")).first()
+                if not memory:
+                    memory = None
+                diagonal = get_or_create(local_session, Diagonals, name=str(row["Диагональ"])) if row["Диагональ"] else None
+
+                price = int(row["Цена"]) if row["Цена"] else 0
+                description = row["Описание"] or ""
+                is_active = str(row["Активно"]).strip().lower() in ("true", "1", "да")
+
+                exists = local_session.query(ModelVariants).filter_by(
+                    model_id=model.id,
+                    sim_id=sim.id if sim else None,
+                    memory_id=memory.id if memory else None,
+                    diagonal_id=diagonal.id if diagonal else None,
+                    color_id=color.id
+                ).first()
+
+                if not exists:
+                    variant = ModelVariants(
+                        model=model,
+                        sim=sim,
+                        memory=memory,
+                        diagonal=diagonal,
+                        color=color,
+                        price=price,
+                        description=description,
+                        is_active=is_active
+                    )
+                    local_session.add(variant)
+                else:
+                    exists.price = price
+
+                local_session.commit()
+            except Exception as e:
+                local_session.rollback()
+                print(e)
+                continue
+    local_session.close()
+
+

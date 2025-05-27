@@ -104,12 +104,11 @@ class Colors(Base):
         return self.name
 
 #Таблица характеристика устройства
-#TODO: подумать какие еще характеристики могут пригодиться так как будут не только телефоны, но и наушники часы и так далее, например диагональ экрана для часов
 class ModelVariants(Base):
     __tablename__ = "model_variants"
     __table_args__ = (UniqueConstraint("model_id", "sim_id", "memory_id", "color_id", "diagonal_id", name="uix_device_variant"),)
     id = Column(Integer, primary_key=True, autoincrement=True)
-    price = Column(Integer, nullable=False)
+    price = Column(Integer, nullable=True)
     description = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True)
 
@@ -158,7 +157,6 @@ class Diagonals(Base):
     __tablename__ = "diagonals"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(50), nullable=False, unique=True)
-    quantity = Column(Integer)
 
     def __str__(self):
         return self.name
@@ -213,6 +211,12 @@ class Admins(Base):
     id = Column(BigInteger, unique=True,  primary_key=True)
     username = Column(String(100), nullable=True)
     chat_id = Column(BigInteger, unique=True)
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.name
 
 class OrderStatuses(Base):
     __tablename__ = "order_statuses"

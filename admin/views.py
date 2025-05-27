@@ -1,13 +1,17 @@
 from aiohttp import request
+from flask_appbuilder import has_access, BaseView, expose
 from flask_appbuilder.views import ModelView
 from flask_appbuilder.models.sqla.interface import SQLAInterface
-from flask_appbuilder.widgets import ListThumbnail
+from openpyxl.reader.excel import load_workbook
 from werkzeug.utils import secure_filename
 from wtforms import FileField
-from flask import request, url_for
+from flask import request, url_for, redirect, flash, render_template
 from config_reader import base_dir
 from markupsafe import Markup
 import os
+from io import BytesIO
+import pandas as pd
+from data.crud import import_from_excel
 from data.model import (Categories,
                         Manufacturers,
                         Models,
@@ -142,3 +146,44 @@ class ModelsImagesView(ModelView):
                     os.remove(full_path)
                 except Exception as e:
                     print(f"Ошибка удаления файла: {e}")
+
+class ExcelUploadView(BaseView):
+    route_base = "/excel_upload"
+    default_view = "upload"
+    upload_folder = os.path.join(base_dir, "stock")
+
+    @expose('/', methods=["GET", "POST"])
+    @has_access
+    def upload(self):
+        if request.method == "POST":
+            if "file" not in request.files:
+                flash("Файл не выбран.", "danger")
+                return redirect(request.url)
+            file = request.files.get("file")
+            if file:
+                if file.filename == "":
+                    flash("Файл не выбран.", "danger")
+                    return redirect(request.url)
+                if allowed_file(file):
+                    filename = secure_filename(file.filename)
+                    file_path = os.path.join(self.upload_folder, filename)
+                    file.save(file_path)
+                    flash("Файл успешно загружен", "success")
+                    import_from_excel(file_path)
+                    os.remove(file_path)
+                    return redirect(request.url)
+                else:
+                    flash("Недопустимый формат файла. Разрешены: xlsx, xls", "danger")
+                    return redirect(request.url)
+
+        return self.render_template("excel_upload.html")
+
+def allowed_file(file_storage):
+    try:
+        in_memory = BytesIO(file_storage.read())
+        load_workbook(filename=in_memory)
+        file_storage.seek(0)
+        return True
+    except Exception:
+        file_storage.seek(0)
+        return False

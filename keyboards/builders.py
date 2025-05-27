@@ -114,7 +114,7 @@ def variants_kb(model_id, color_id, page: int = 0, page_size: int=MAX_PAGE_SIZE)
             f"{variant.memory} " if variant.memory else "",
             f"{variant.sim} " if variant.sim else "",
             f"{variant.diagonal} " if variant.diagonal else "",
-            f"{variant.price} руб " if variant.price else ""
+            f"{variant.price} руб " if variant.price else "цену уточнять"
         ]).strip()
         builder.button(text=text, callback_data=f"variant_{variant.id}")
     builder.adjust(1)
