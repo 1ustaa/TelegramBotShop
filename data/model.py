@@ -11,7 +11,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Boolean
 )
-from sqlalchemy.types import DECIMAL
+
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base
 from config_reader import db_link
 from datetime import datetime

@@ -18,7 +18,8 @@ from data.crud import (get_color_model_image,
                        clear_user_cart,
                        make_order,
                        get_admins,
-                       get_order_details)
+                       get_order_details,
+                       count_models_variants)
 
 router = Router()
 
@@ -177,16 +178,21 @@ async def process_variant_selection(callback: types.CallbackQuery, state: FSMCon
 
     await state.update_data(chosen_color=color_id)
 
+    variants_count = count_models_variants(model_id, color_id)
+    if variants_count > 0:
+        text = f"<b>{model_name} {color_name}</b>\nНажмите на кнопку с ценой, \nчто бы добавить товар в корзину"
+    else:
+        text = f"<b>{model_name} {color_name}</b>\nК сожалению данного товара пока что нет в наличии"
+
     if image_path and os.path.exists(image_path):
         photo = FSInputFile(image_path)
         await callback.message.edit_media(
-                media=InputMediaPhoto(media=photo, caption=f"<b>{model_name} {color_name}</b>"
-                                                           "\nНажмите на кнопку с ценой, \nчто бы добавить товар в корзину"),
+                media=InputMediaPhoto(media=photo, caption=text),
                 reply_markup=keyboards.builders.variants_kb(model_id, color_id)
         )
     else:
         await callback.message.edit_text(
-                f"<b>{model_name} {color_name}</b>\nНажмите на кнопку с ценой, \nчто бы добавить товар в корзину",
+                text,
                 reply_markup=keyboards.builders.variants_kb(model_id ,color_id)
         )
 
@@ -303,10 +309,10 @@ async def safe_edit_message(callback: types.CallbackQuery, text: str=None, reply
                 await callback.message.delete()
             except TelegramBadRequest as del_err:
                 if "message can't be deleted" in str(del_err):
-            await callback.message.answer(
-                text=text,
-                reply_markup=reply_markup
-            )
+                    await callback.message.answer(
+                        text=text,
+                        reply_markup=reply_markup
+                    )
         else:
             raise
 

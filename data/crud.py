@@ -1,9 +1,8 @@
 import pandas as pd
-from httpx import delete
 from sqlalchemy.exc import SQLAlchemyError
 
 from data.model import *
-from sqlalchemy import select, func, delete, nullsfirst
+from sqlalchemy import select, func, delete
 from config_reader import base_dir
 import os
 
@@ -52,7 +51,8 @@ def count_models_variants(model_id :int, color_id:int) -> int:
         session.query(ModelVariants)
         .filter(
             ModelVariants.model_id == model_id,
-            ModelVariants.color_id == color_id
+            ModelVariants.color_id == color_id,
+            ModelVariants.is_active == True
         )
         .count()
     )

@@ -1,6 +1,6 @@
 from flask import Flask
 from flask_appbuilder import AppBuilder, SQLA
-from config_reader import db_link
+from config_reader import db_link, secret_key
 from admin.views import (CategoriesView,
                    ManufacturersView,
                    ModelsView,
@@ -15,7 +15,7 @@ from admin.views import (CategoriesView,
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = db_link
-app.config['SECRET_KEY'] = 'your_secret_key'
+app.config['SECRET_KEY'] = secret_key
 
 db = SQLA(app)
 appbuilder = AppBuilder(app, db.session)
