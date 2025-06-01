@@ -10,7 +10,8 @@ from admin.views import (CategoriesView,
                    ModelVariantsView,
                    ModelsImagesView,
                    DiagonalsView,
-                   ExcelUploadView)
+                   ExcelUploadView,
+                   AdminsView)
 
 
 app = Flask(__name__)
@@ -30,6 +31,7 @@ appbuilder.add_view(SimCardsView, "Сим-карты")
 appbuilder.add_view(MemoryStorageView, "Память")
 appbuilder.add_view(DiagonalsView, "Диагонали")
 appbuilder.add_view(ExcelUploadView, "Загрузить товары")
+appbuilder.add_view(AdminsView, "ТГ Админы")
 
 
 if __name__ == "__main__":

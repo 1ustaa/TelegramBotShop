@@ -20,7 +20,8 @@ from data.model import (Categories,
                         MemoryStorage,
                         ModelVariants,
                         ModelsImages,
-                        Diagonals)
+                        Diagonals,
+                        Admins)
 
 class CategoriesView(ModelView):
     datamodel = SQLAInterface(Categories)
@@ -105,6 +106,12 @@ class ModelVariantsView(ModelView):
                      "description": "Описание",
                      "is_active": "Активно"
                      }
+
+class AdminsView(ModelView):
+    datamodel = SQLAInterface(Admins)
+
+    list_columns = ["id", "username"]
+    label_columns = {"id": "Telegram id", "username": "Имя пользователя"}
 
 class ModelsImagesView(ModelView):
     datamodel = SQLAInterface(ModelsImages)
