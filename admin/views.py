@@ -110,8 +110,8 @@ class ModelVariantsView(ModelView):
 class AdminsView(ModelView):
     datamodel = SQLAInterface(Admins)
 
-    list_columns = ["id", "username"]
-    label_columns = {"id": "Telegram id", "username": "Имя пользователя"}
+    columns = ["id", "username"]
+    list_columns = add_columns = edit_columns = show_columns = columns
 
 class ModelsImagesView(ModelView):
     datamodel = SQLAInterface(ModelsImages)
