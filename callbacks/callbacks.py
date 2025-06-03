@@ -322,7 +322,7 @@ async def show_cart(callback: types.CallbackQuery):
     cart_items = get_cart_items(callback.from_user.id)
     cart_sum = count_cart_sum(callback.from_user.id)
 
-    if cart_items and cart_sum:
+    if cart_items:
         text = (
             "Ваша 🛒:\n\n" + "\n\n"
             .join(["".join([
@@ -333,7 +333,7 @@ async def show_cart(callback: types.CallbackQuery):
             # f"{item.price} " if item.price else "",
             "- ",
             f"{item.quantity } шт. " if item.quantity else "",
-            f"сумма: {item.sum} руб " if item.sum else "",
+            f"сумма: {item.sum} руб " if item.sum else "цену уточнять",
             ]).strip() for item in cart_items]) + f"\n\n<b>Общая сумма: {cart_sum} руб</b>"
         )
     else:
