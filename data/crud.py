@@ -316,6 +316,7 @@ def import_from_excel(file_path):
                     )
                     local_session.add(variant)
                 else:
+                    exists.is_active = is_active
                     exists.price = price
 
                 local_session.commit()
