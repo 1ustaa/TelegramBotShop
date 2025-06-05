@@ -26,3 +26,17 @@ kart_kb = InlineKeyboardMarkup(
         [main_menu_button()]
     ]
 )
+
+variant_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="Добавить в корзину", callback_data="add_order_item")],
+        [back_button()]
+    ]
+)
+
+order_variant_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="Перейти в корзину", callback_data="cart")],
+        [back_button()]
+    ]
+)

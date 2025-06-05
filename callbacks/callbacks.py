@@ -231,6 +231,7 @@ async def process_variant_pagination(callback: types.CallbackQuery, state: FSMCo
         )
     await callback.answer()
 
+# callback для подтверждения заказа
 @router.callback_query(
     F.data.startswith("variant_"),
     ChoseDevice.showing_variants
@@ -242,10 +243,11 @@ async def add_item_in_cart(callback: types.CallbackQuery, state: FSMContext):
     except (IndexError, ValueError):
         await callback.answer("Некорректные данные.")
         return
-    user_id = callback.from_user.id
-    username = callback.from_user.username or "Без имени"
-    customer = add_new_customer(user_id, username)
-    add_cart_item(variant_id, customer.telegram_id)
+    # Не удалять! пригодятся для новой функции
+    # user_id = callback.from_user.id
+    # username = callback.from_user.username or "Без имени"
+    # customer = add_new_customer(user_id, username)
+    # add_cart_item(variant_id, customer.telegram_id)
 
     data = await state.get_data()
     model_id = data.get("chosen_model")
