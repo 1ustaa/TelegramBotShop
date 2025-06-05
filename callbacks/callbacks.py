@@ -282,39 +282,28 @@ async def add_item_in_cart(callback: types.CallbackQuery, state: FSMContext):
             raise
     await callback.answer()
 
-#TODO доработать функцию исправить ошибку удаления сообщения через 48 часов
 async def safe_edit_message(callback: types.CallbackQuery, text: str=None, reply_markup=None, media=None):
     try:
         if media:
-            try:
-                await callback.message.edit_media(
-                    media=InputMediaPhoto(
-                        media=media,
-                        caption=text
-                    ),
-                    reply_markup=reply_markup
-                )
-            except Exception as e:
-                await callback.message.answer_photo(
-                        media=media,
-                        caption=text,
-                        reply_markup=reply_markup)
+            await callback.message.edit_media(
+                media=InputMediaPhoto(
+                    media=media,
+                    caption=text
+                ),
+                reply_markup=reply_markup
+            )
         else:
             await callback.message.edit_text(text, reply_markup=reply_markup)
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
-            pass
-        elif "there is no text in the message to edit" in str(e):
+            return
+        else:
             try:
                 await callback.message.delete()
-            except TelegramBadRequest as del_err:
-                if "message can't be deleted" in str(del_err):
-                    await callback.message.answer(
-                        text=text,
-                        reply_markup=reply_markup
-                    )
-        else:
-            raise
+            except Exception:
+                pass
+
+            await callback.message.answer(text, reply_markup=reply_markup)
 
 #callback для корзины
 @router.callback_query(F.data == "cart")
