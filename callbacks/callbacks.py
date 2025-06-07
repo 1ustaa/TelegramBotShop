@@ -232,7 +232,7 @@ async def process_variant_pagination(callback: types.CallbackQuery, state: FSMCo
         )
     await callback.answer()
 
-# callback для подтверждения добавления устройсва в корзину
+# callback для подтверждения добавления устройства в корзину
 @router.callback_query(
     F.data.startswith("variant_"),
     ChoseDevice.showing_variants
@@ -324,7 +324,6 @@ def get_variant_name(model_id, color_id, variant_id):
     variant_name = f"{model_name} {color_name} {text_variant}"
     return variant_name
 
-
 async def safe_edit_message(callback: types.CallbackQuery, text: str=None, reply_markup=None, media=None):
     try:
         if media:
@@ -371,8 +370,9 @@ async def show_cart(callback: types.CallbackQuery, state: FSMContext):
     else:
         text = "Ваша 🛒:\n\n" + "В вашей корзине пока что нет товаров"
 
+    await safe_edit_message(callback, text, keyboards.inline.kart_kb)
     await state.clear()
-    await callback.message.edit_text(text, reply_markup=keyboards.inline.kart_kb)
+    await callback.answer()
 
 #callback для удаления товаров из корзины
 @router.callback_query(F.data == "drop_kart")
