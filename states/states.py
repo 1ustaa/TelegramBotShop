@@ -29,7 +29,8 @@ state_handlers = {
     },
     ChoseDevice.showing_variants:{
         "markup": lambda data: builders.variants_kb(data["chosen_model"], data["chosen_color"]),
-        "text": "Выберите вариант устройства"
+        "text": "Выберите вариант устройства",
+        "media": lambda data: data["image_path"]
     },
     ChoseDevice.showing_variant:{
         "markup": lambda data: builders.variant_kb(data["model_variant"]),

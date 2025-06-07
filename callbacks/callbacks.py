@@ -185,6 +185,7 @@ async def process_variant_selection(callback: types.CallbackQuery, state: FSMCon
         text = f"<b>{model_name} {color_name}</b>\nК сожалению данного товара пока что нет в наличии"
 
     if image_path and os.path.exists(image_path):
+        await state.update_data(image_path=image_path)
         photo = FSInputFile(image_path)
         await callback.message.edit_media(
                 media=InputMediaPhoto(media=photo, caption=text),
@@ -231,51 +232,76 @@ async def process_variant_pagination(callback: types.CallbackQuery, state: FSMCo
         )
     await callback.answer()
 
-# callback для подтверждения заказа
+# callback для подтверждения добавления устройсва в корзину
 @router.callback_query(
     F.data.startswith("variant_"),
     ChoseDevice.showing_variants
 )
-async def add_item_in_cart(callback: types.CallbackQuery, state: FSMContext):
+async def apply_add_item_in_cart(callback: types.CallbackQuery, state: FSMContext):
     data_split = callback.data.split("_")
     try:
         variant_id = int(data_split[1])
     except (IndexError, ValueError):
         await callback.answer("Некорректные данные.")
         return
-    # Не удалять! пригодятся для новой функции
-    # user_id = callback.from_user.id
-    # username = callback.from_user.username or "Без имени"
-    # customer = add_new_customer(user_id, username)
-    # add_cart_item(variant_id, customer.telegram_id)
 
     data = await state.get_data()
     model_id = data.get("chosen_model")
     color_id = data.get("chosen_color")
+    image_path = data.get("image_path")
 
-    model_name, color_name, image_path = get_color_model_image(model_id, color_id)
-    variants = query_models_variants(model_id, color_id, variant_id)
+    variant_name = get_variant_name(model_id, color_id, variant_id)
 
-    text_variant = ""
-    for variant in variants:
-        text_variant = "".join([
-            f"{variant.memory} " if variant.memory else "",
-            f"{variant.sim} " if variant.sim else "",
-            f"{variant.diagonal} " if variant.diagonal else ""
-        ]).strip()
-    text = (f"Товар <b>{model_name} {color_name} {text_variant}</b>\n Добавлен в корзину \n "
-            f"Что бы посмотреть корзину перейдите в главное меню")
+    await state.update_data(variant_name=variant_name, variant_id=variant_id)
+
+    text = (f"Товар <b>{variant_name}</b>\n"
+            f"Добавить в корзину?")
     try:
         if image_path and os.path.exists(image_path):
             photo = FSInputFile(image_path)
             await callback.message.edit_media(
                 media=InputMediaPhoto(media=photo, caption=text),
-                reply_markup=keyboards.builders.variants_kb(model_id, color_id)
+                reply_markup=keyboards.inline.variant_kb
             )
         else:
             await callback.message.edit_text(
                 text=text,
-                reply_markup=keyboards.builders.variants_kb(model_id, color_id)
+                reply_markup=keyboards.inline.variant_kb
+            )
+    except TelegramBadRequest as e:
+        if "message is not modified" in str(e):
+            pass
+        else:
+            raise
+    await push_state(state, ChoseDevice.showing_variant)
+    await callback.answer()
+
+#callback выводит информацию, что устройство добавлено в корзину
+@router.callback_query(F.data == "add_order_item")
+async def apply_add_item_in_cart(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    variant_name = data.get("variant_name")
+    variant_id = data.get("variant_id")
+    image_path = data.get("image_path")
+
+    user_id = callback.from_user.id
+    username = callback.from_user.username or "Без имени"
+    customer = add_new_customer(user_id, username)
+    add_cart_item(variant_id, customer.telegram_id)
+
+    text = (f"Товар <b>{variant_name}</b>\n"
+            f"Добавлен в корзину")
+    try:
+        if image_path and os.path.exists(image_path):
+            photo = FSInputFile(image_path)
+            await callback.message.edit_media(
+                media=InputMediaPhoto(media=photo, caption=text),
+                reply_markup=keyboards.inline.order_variant_kb
+            )
+        else:
+            await callback.message.edit_text(
+                text=text,
+                reply_markup=keyboards.inline.order_variant_kb
             )
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
@@ -283,6 +309,21 @@ async def add_item_in_cart(callback: types.CallbackQuery, state: FSMContext):
         else:
             raise
     await callback.answer()
+
+def get_variant_name(model_id, color_id, variant_id):
+    model_name, color_name, image_path = get_color_model_image(model_id, color_id)
+    variant = query_models_variants(model_id, color_id, variant_id)
+
+    text_variant = ""
+    for feature in variant:
+        text_variant = "".join([
+            f"{feature.memory} " if feature.memory else "",
+            f"{feature.sim} " if feature.sim else "",
+            f"{feature.diagonal} " if feature.diagonal else ""
+        ]).strip()
+    variant_name = f"{model_name} {color_name} {text_variant}"
+    return variant_name
+
 
 async def safe_edit_message(callback: types.CallbackQuery, text: str=None, reply_markup=None, media=None):
     try:
@@ -308,8 +349,8 @@ async def safe_edit_message(callback: types.CallbackQuery, text: str=None, reply
             await callback.message.answer(text, reply_markup=reply_markup)
 
 #callback для корзины
-@router.callback_query(F.data == "cart")
-async def show_cart(callback: types.CallbackQuery):
+@router.callback_query(F.data == "cart", StateFilter("*"))
+async def show_cart(callback: types.CallbackQuery, state: FSMContext):
     cart_items = get_cart_items(callback.from_user.id)
     cart_sum = count_cart_sum(callback.from_user.id)
 
@@ -330,6 +371,7 @@ async def show_cart(callback: types.CallbackQuery):
     else:
         text = "Ваша 🛒:\n\n" + "В вашей корзине пока что нет товаров"
 
+    await state.clear()
     await callback.message.edit_text(text, reply_markup=keyboards.inline.kart_kb)
 
 #callback для удаления товаров из корзины
@@ -381,8 +423,6 @@ def make_message(order_id, username):
     )
     return admins, text
 
-
-
 # callback для кнопки главное меню
 @router.callback_query(F.data == "main_menu", StateFilter("*"))
 async def return_main_menu(callback: types.CallbackQuery, state: FSMContext):
@@ -409,8 +449,11 @@ async def go_back(callback: types.CallbackQuery, state: FSMContext):
         try:
             markup = handler["markup"](data)
             text = handler["text"]
+            media = None
+            if "media" in handler.keys():
+                media = FSInputFile(handler["media"](data))
             try:
-                await safe_edit_message(callback, text, markup)
+                await safe_edit_message(callback, text, markup, media)
             except TelegramBadRequest as e:
                 if "message is not modified" in str(e):
                     pass

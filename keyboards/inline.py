@@ -30,13 +30,15 @@ kart_kb = InlineKeyboardMarkup(
 variant_kb = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text="Добавить в корзину", callback_data="add_order_item")],
-        [back_button()]
+        [back_button()],
+        [main_menu_button()]
     ]
 )
 
 order_variant_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="Перейти в корзину", callback_data="cart")],
-        [back_button()]
+        [InlineKeyboardButton(text="Перейти в корзину 🗑", callback_data="cart")],
+        [back_button()],
+        [main_menu_button()]
     ]
 )
