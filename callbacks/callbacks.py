@@ -27,7 +27,7 @@ router = Router()
 @router.callback_query(F.data == "categories")
 async def process_category_selection(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
-        "Выберите категорию", reply_markup=keyboards.builders.categories_kb()
+        "Выберите категорию", reply_markup= await keyboards.builders.categories_kb()
     )
     await push_state(state, ChoseDevice.showing_categories)
     await callback.answer()
@@ -43,7 +43,7 @@ async def process_category_pagination(callback: types.CallbackQuery, state: FSMC
         return
 
     await callback.message.edit_text(
-        "Выберите категорию", reply_markup=keyboards.builders.categories_kb(page)
+        "Выберите категорию", reply_markup= await keyboards.builders.categories_kb(page)
     )
     await callback.answer()
 

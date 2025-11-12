@@ -13,14 +13,23 @@ from sqlalchemy import (
 )
 
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base
-from config_reader import db_link
+from config_reader import db_link_async
 from datetime import datetime
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
 Base = declarative_base()
 
-engine = create_engine(db_link)
-Session = sessionmaker(bind=engine)
-session = Session()
+engine = create_async_engine(db_link_async, future=True, echo=True)
+AsyncSessionLocal = sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autoflush=False,
+    autocommit=False,
+)
+# Удаляем sync-сессию:
+# Session = sessionmaker(bind=engine)
+# session = Session()
 
 #Таблица Категория
 class Categories(Base):
@@ -230,5 +239,6 @@ class OrderStatuses(Base):
         return self.name
 
 
-Base.metadata.create_all(engine)
+# ВНИМАНИЕ! Этот вызов делать отдельно командой через alembic или отдельный async-скрипт, иначе будет warning/error:
+# Base.metadata.create_all(engine)
 

@@ -1,6 +1,8 @@
+import asyncio
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
+from sqlalchemy import select, func, desc
 from data.model import (
-    session,
+    AsyncSessionLocal,
     Categories,
     Manufacturers,
     Models,
@@ -10,14 +12,22 @@ from data.model import (
 )
 from data.crud import count_models_variants, query_models_variants
 from keyboards.inline import main_menu_button, back_button
-from sqlalchemy import desc
 
 MAX_PAGE_SIZE = 6
 
-def categories_kb(page=0 ,page_size: int=MAX_PAGE_SIZE):
-    categories_count = session.query(Categories).count()
-    page, total_pages= count_pages(categories_count, page_size, page)
-    categories = session.query(Categories).offset(page * page_size).limit(page_size).all()
+async def categories_kb(page=0 ,page_size: int=MAX_PAGE_SIZE):
+    async with AsyncSessionLocal() as session:
+        # Асинхронно считаем количество категорий
+        result_count = await session.execute(select(func.count()).select_from(Categories))
+        categories_count = result_count.scalar_one()
+        page, total_pages = count_pages(categories_count, page_size, page)
+        # Асинхронно получаем список категорий
+        result = await session.execute(
+            select(Categories)
+            .offset(page * page_size)
+            .limit(page_size)
+        )
+        categories = result.scalars().all()
 
     builder = InlineKeyboardBuilder()
     [builder.button(text=category.name, callback_data=f"category_{category.id}") for category in categories]
@@ -28,7 +38,6 @@ def categories_kb(page=0 ,page_size: int=MAX_PAGE_SIZE):
 
     builder.row(back_button())
     builder.row(main_menu_button())
-
     return builder.as_markup()
 
 def manufacturer_kb(category_id, page = 0, page_size: int=MAX_PAGE_SIZE):
