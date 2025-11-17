@@ -27,9 +27,9 @@ AsyncSessionLocal = sessionmaker(
     autoflush=False,
     autocommit=False,
 )
-# Удаляем sync-сессию:
-# Session = sessionmaker(bind=engine)
-# session = Session()
+
+Session = sessionmaker(bind=engine)
+session = Session()
 
 #Таблица Категория
 class Categories(Base):
@@ -193,11 +193,12 @@ class CartItems(Base):
     model_variant = relationship("ModelVariants")
     model_variant_id = Column(Integer, ForeignKey("model_variants.id"), nullable=False)
 
+# TODO: Исправить колонку created_at убедиться что у нее формат дата + время
 class Orders(Base):
     __tablename__ = "orders"
     id = Column(Integer, primary_key=True, autoincrement=True)
     customer_id = Column(Integer, ForeignKey("customers.telegram_id"), nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime(timezone=True), default=datetime.now)
     status_id = Column(Integer, ForeignKey("order_statuses.id"), nullable=True)
     status = relationship("OrderStatuses")
     total_price = Column(Integer, nullable=False)
@@ -237,8 +238,3 @@ class OrderStatuses(Base):
 
     def __repr__(self):
         return self.name
-
-
-# ВНИМАНИЕ! Этот вызов делать отдельно командой через alembic или отдельный async-скрипт, иначе будет warning/error:
-# Base.metadata.create_all(engine)
-

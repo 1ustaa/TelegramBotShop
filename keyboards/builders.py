@@ -15,6 +15,12 @@ from keyboards.inline import main_menu_button, back_button
 
 MAX_PAGE_SIZE = 6
 
+# =============================
+# Важно! AsyncSessionLocal используется для асинхронных запросов к БД через SQLAlchemy.
+# Основное отличие: используется 'async with' для открытия сессии и 'await' для всех запросов.
+# Все обращения к базе должны быть await, а результаты получать через .scalars()/.fetchall() и пр.
+# Пример ниже (см. функцию categories_kb).
+# =============================
 async def categories_kb(page=0 ,page_size: int=MAX_PAGE_SIZE):
     async with AsyncSessionLocal() as session:
         # Асинхронно считаем количество категорий
@@ -40,12 +46,23 @@ async def categories_kb(page=0 ,page_size: int=MAX_PAGE_SIZE):
     builder.row(main_menu_button())
     return builder.as_markup()
 
-def manufacturer_kb(category_id, page = 0, page_size: int=MAX_PAGE_SIZE):
-    manufacturer_count = session.query(Manufacturers).join(manufacturer_category).filter(
-        manufacturer_category.c.category_id == category_id).count()
-    page, total_pages = count_pages(manufacturer_count, page_size, page)
-    manufacturers = session.query(Manufacturers).join(manufacturer_category).filter(
-        manufacturer_category.c.category_id == category_id).offset(page * page_size).limit(page_size).all()
+# --- Асинхронная замена manufacturer_kb ---
+async def manufacturer_kb(category_id, page=0, page_size: int=MAX_PAGE_SIZE):
+    async with AsyncSessionLocal() as session:
+        manufacturer_count = await session.execute(
+            select(func.count()).select_from(Manufacturers).join(manufacturer_category)
+            .where(manufacturer_category.c.category_id == category_id)
+        )
+        manufacturer_count = manufacturer_count.scalar_one()
+        page, total_pages = count_pages(manufacturer_count, page_size, page)
+        manufacturers = await session.execute(
+            select(Manufacturers)
+            .join(manufacturer_category)
+            .where(manufacturer_category.c.category_id == category_id)
+            .offset(page * page_size)
+            .limit(page_size)
+        )
+        manufacturers = manufacturers.scalars().all()
 
     builder = InlineKeyboardBuilder()
     for manufacturer in manufacturers:
@@ -59,11 +76,28 @@ def manufacturer_kb(category_id, page = 0, page_size: int=MAX_PAGE_SIZE):
     builder.row(main_menu_button())
     return builder.as_markup()
 
-def models_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size: int=MAX_PAGE_SIZE):
-    models_count = session.query(Models).filter_by(category_id=category_id, manufacturer_id=manufacturer_id).count()
-    page, total_pages = count_pages(models_count, page_size, page)
-    models = session.query(Models).filter_by(category_id=category_id, manufacturer_id=manufacturer_id) \
-        .order_by(desc(Models.name)).offset(page * page_size).limit(page_size).all()
+# --- Асинхронная замена models_kb ---
+async def models_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size: int = MAX_PAGE_SIZE):
+    async with AsyncSessionLocal() as session:
+        models_count = await session.execute(
+            select(func.count()).select_from(Models).where(
+                Models.category_id == category_id,
+                Models.manufacturer_id == manufacturer_id
+            )
+        )
+        models_count = models_count.scalar_one()
+        page, total_pages = count_pages(models_count, page_size, page)
+        models = await session.execute(
+            select(Models)
+            .where(
+                Models.category_id == category_id,
+                Models.manufacturer_id == manufacturer_id
+            )
+            .order_by(desc(Models.name))
+            .offset(page * page_size)
+            .limit(page_size)
+        )
+        models = models.scalars().all()
 
     builder = InlineKeyboardBuilder()
     for model in models:
@@ -77,45 +111,51 @@ def models_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size: 
     builder.row(main_menu_button())
     return builder.as_markup()
 
-def colors_kb(model_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
-    subquery = (
-        session.query(Colors.id)
-        .join(ModelVariants, ModelVariants.color_id == Colors.id)
-        .filter(ModelVariants.model_id == model_id)
-        .distinct()
-        .subquery()
-    )
-    colors_count = session.query(subquery.c.id).count()
-
-    page, total_pages = count_pages(colors_count, page_size, page)
-
-    colors = (
-        session.query(Colors)
-        .join(ModelVariants, ModelVariants.color_id == Colors.id)
-        .filter(ModelVariants.model_id == model_id)
-        .distinct()
-        .order_by(Colors.name)
-        .offset(page * page_size)
-        .limit(page_size)
-        .all()
-    )
+# --- Асинхронная замена colors_kb ---
+async def colors_kb(model_id, page: int = 0, page_size: int = MAX_PAGE_SIZE):
+    async with AsyncSessionLocal() as session:
+        subquery = (
+            select(Colors.id)
+            .join(ModelVariants, ModelVariants.color_id == Colors.id)
+            .where(ModelVariants.model_id == model_id)
+            .distinct()
+        )
+        colors_count = await session.execute(select(func.count()).select_from(subquery.subquery()))
+        colors_count = colors_count.scalar_one()
+        page, total_pages = count_pages(colors_count, page_size, page)
+        colors = await session.execute(
+            select(Colors)
+            .join(ModelVariants, ModelVariants.color_id == Colors.id)
+            .where(ModelVariants.model_id == model_id)
+            .distinct()
+            .order_by(Colors.name)
+            .offset(page * page_size)
+            .limit(page_size)
+        )
+        colors = colors.scalars().all()
 
     builder = InlineKeyboardBuilder()
     for color in colors:
         builder.button(text=color.name, callback_data=f"color_{color.id}")
     builder.adjust(2)
 
-    pg_buttons = make_pagination_buttons("pg_color",[model_id], total_pages, page)
+    pg_buttons = make_pagination_buttons("pg_color", [model_id], total_pages, page)
     builder.row(*pg_buttons)
 
     builder.row(back_button())
     builder.row(main_menu_button())
     return builder.as_markup()
 
-def variants_kb(model_id, color_id, page: int = 0, page_size: int=MAX_PAGE_SIZE):
-    variants_count = count_models_variants(model_id, color_id)
-    page, total_pages = count_pages(variants_count, page_size, page)
-    variants = query_models_variants(model_id, color_id, None, page * page_size, page_size)
+# --- Асинхронная замена variants_kb ---
+async def variants_kb(model_id, color_id, page: int = 0, page_size: int = MAX_PAGE_SIZE):
+    from data.crud import query_models_variants, count_models_variants
+    # Здесь query_models_variants и count_models_variants по TODO надо сделать асинхронными,
+    # а тут пока пример обращения, далее заменить на async-вызовы, когда появятся.
+    async with AsyncSessionLocal() as session:
+        # TODO: заменить на асинхронные аналоги
+        variants_count = await count_models_variants(model_id, color_id)
+        page, total_pages = count_pages(variants_count, page_size, page)
+        variants = await query_models_variants(model_id, color_id, None, page * page_size, page_size)
 
     builder = InlineKeyboardBuilder()
     for variant in variants:
@@ -130,7 +170,6 @@ def variants_kb(model_id, color_id, page: int = 0, page_size: int=MAX_PAGE_SIZE)
 
     pg_buttons = make_pagination_buttons("pg_variant", [model_id, color_id], total_pages, page)
     builder.row(*pg_buttons)
-
     builder.row(back_button())
     builder.row(main_menu_button())
     return builder.as_markup()

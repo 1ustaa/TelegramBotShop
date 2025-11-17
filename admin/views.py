@@ -11,7 +11,7 @@ from markupsafe import Markup
 import os
 from io import BytesIO
 import pandas as pd
-from data.crud import import_from_excel
+# from data.crud import import_from_excel
 from data.model import (Categories,
                         Manufacturers,
                         Models,

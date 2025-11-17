@@ -19,7 +19,8 @@ from data.crud import (get_color_model_image,
                        make_order,
                        get_admins,
                        get_order_details,
-                       count_models_variants)
+                       count_models_variants,
+                       get_variant_name)
 
 router = Router()
 
@@ -60,7 +61,7 @@ async def process_manufacturer_selection(callback: types.CallbackQuery, state: F
         return
     await state.update_data(chosen_category=category_id)
     await callback.message.edit_text(
-        "Выберите производителя", reply_markup=keyboards.builders.manufacturer_kb(category_id)
+        "Выберите производителя", reply_markup= await keyboards.builders.manufacturer_kb(category_id)
     )
     await push_state(state, ChoseDevice.showing_manufacturers)
     await callback.answer()
@@ -80,7 +81,7 @@ async def process_manufacturer_pagination(callback: types.CallbackQuery, state: 
         return
 
     await callback.message.edit_text(
-        "Выберите производителя", reply_markup=keyboards.builders.manufacturer_kb(category_id, page)
+        "Выберите производителя", reply_markup= await keyboards.builders.manufacturer_kb(category_id, page)
     )
     await callback.answer()
 
@@ -98,7 +99,7 @@ async def process_model_selection(callback: types.CallbackQuery, state: FSMConte
     data = await state.get_data()
     category_id = data.get("chosen_category")
     await callback.message.edit_text(
-        "Выберите модель устройства", reply_markup=keyboards.builders.models_kb(category_id, manufacturer_id)
+        "Выберите модель устройства", reply_markup=await keyboards.builders.models_kb(category_id, manufacturer_id)
     )
     await push_state(state, ChoseDevice.showing_models)
     await callback.answer()
@@ -117,11 +118,10 @@ async def process_model_pagination(callback: types.CallbackQuery, state: FSMCont
         await callback.answer("Некорректные данные.")
         return
 
-
     page = int(data_split[5])
 
     await callback.message.edit_text(
-        "Выберите модель устройства", reply_markup=keyboards.builders.models_kb(category_id, manufacturer_id, page)
+        "Выберите модель устройства", reply_markup=await keyboards.builders.models_kb(category_id, manufacturer_id, page)
     )
     await callback.answer()
 
@@ -137,7 +137,7 @@ async def process_color_selection(callback: types.CallbackQuery, state: FSMConte
 
     await state.update_data(chosen_model=model_id)
     await callback.message.edit_text(
-        "Выберите цвет устройства", reply_markup=keyboards.builders.colors_kb(model_id)
+        "Выберите цвет устройства", reply_markup=await keyboards.builders.colors_kb(model_id)
     )
     await push_state(state, ChoseDevice.showing_colors)
     await callback.answer()
@@ -157,7 +157,7 @@ async def process_color_pagination(callback: types.CallbackQuery, state: FSMCont
         return
 
     await callback.message.edit_text(
-        "Выберите цвет устройства", reply_markup=keyboards.builders.colors_kb(model_id, page)
+        "Выберите цвет устройства", reply_markup=await keyboards.builders.colors_kb(model_id, page)
     )
     await callback.answer()
 
@@ -173,12 +173,10 @@ async def process_variant_selection(callback: types.CallbackQuery, state: FSMCon
 
     data = await state.get_data()
     model_id = data.get("chosen_model")
-
-    model_name, color_name, image_path = get_color_model_image(model_id, color_id)
-
+    model_name, color_name, image_path = await get_color_model_image(model_id, color_id)
     await state.update_data(chosen_color=color_id)
 
-    variants_count = count_models_variants(model_id, color_id)
+    variants_count = await count_models_variants(model_id, color_id)
     if variants_count > 0:
         text = f"<b>{model_name} {color_name}</b>\nНажмите на кнопку с ценой, \nчто бы добавить товар в корзину"
     else:
@@ -189,12 +187,12 @@ async def process_variant_selection(callback: types.CallbackQuery, state: FSMCon
         photo = FSInputFile(image_path)
         await callback.message.edit_media(
                 media=InputMediaPhoto(media=photo, caption=text),
-                reply_markup=keyboards.builders.variants_kb(model_id, color_id)
+                reply_markup=await keyboards.builders.variants_kb(model_id, color_id)
         )
     else:
         await callback.message.edit_text(
                 text,
-                reply_markup=keyboards.builders.variants_kb(model_id ,color_id)
+                reply_markup=await keyboards.builders.variants_kb(model_id ,color_id)
         )
 
     await push_state(state, ChoseDevice.showing_variants)
@@ -216,19 +214,19 @@ async def process_variant_pagination(callback: types.CallbackQuery, state: FSMCo
         await callback.answer("Некорректные данные.")
         return
 
-    model_name, color_name, image_path = get_color_model_image(model_id, color_id)
+    model_name, color_name, image_path = await get_color_model_image(model_id, color_id)
 
     if image_path and os.path.exists(image_path):
         photo = FSInputFile(image_path)
         await callback.message.edit_media(
             media=InputMediaPhoto(media=photo, caption=f"<b>{model_name} {color_name}</b>"
-                                                       "\nНажмите на кнопку с ценой, \nчто бы добавить товар в корзину"),
-            reply_markup=keyboards.builders.variants_kb(model_id, color_id, page)
+                                                   "\nНажмите на кнопку с ценой, \nчто бы добавить товар в корзину"),
+            reply_markup=await keyboards.builders.variants_kb(model_id, color_id, page)
         )
     else:
         await callback.message.edit_text(
             f"<b>{model_name} {color_name}</b>\nНажмите на кнопку с ценой, \nчто бы добавить товар в корзину",
-            reply_markup=keyboards.builders.variants_kb(model_id, color_id, page)
+            reply_markup=await keyboards.builders.variants_kb(model_id, color_id, page)
         )
     await callback.answer()
 
@@ -250,7 +248,7 @@ async def apply_add_item_in_cart(callback: types.CallbackQuery, state: FSMContex
     color_id = data.get("chosen_color")
     image_path = data.get("image_path")
 
-    variant_name = get_variant_name(model_id, color_id, variant_id)
+    variant_name = await get_variant_name(model_id, color_id, variant_id)
 
     await state.update_data(variant_name=variant_name, variant_id=variant_id)
 
@@ -286,8 +284,8 @@ async def apply_add_item_in_cart(callback: types.CallbackQuery, state: FSMContex
 
     user_id = callback.from_user.id
     username = callback.from_user.username or "Без имени"
-    customer = add_new_customer(user_id, username)
-    add_cart_item(variant_id, customer.telegram_id)
+    customer = await add_new_customer(user_id, username)
+    await add_cart_item(variant_id, customer.telegram_id)
 
     text = (f"Товар <b>{variant_name}</b>\n"
             f"Добавлен в корзину")
@@ -296,7 +294,7 @@ async def apply_add_item_in_cart(callback: types.CallbackQuery, state: FSMContex
             photo = FSInputFile(image_path)
             await callback.message.edit_media(
                 media=InputMediaPhoto(media=photo, caption=text),
-                reply_markup=keyboards.inline.order_variant_kb
+                reply_markup=await keyboards.inline.order_variant_kb
             )
         else:
             await callback.message.edit_text(
@@ -310,20 +308,6 @@ async def apply_add_item_in_cart(callback: types.CallbackQuery, state: FSMContex
             raise
     await callback.answer()
 
-def get_variant_name(model_id, color_id, variant_id):
-    model_name, color_name, image_path = get_color_model_image(model_id, color_id)
-    variant = query_models_variants(model_id, color_id, variant_id)
-
-    text_variant = ""
-    for feature in variant:
-        text_variant = "".join([
-            f"{feature.memory} " if feature.memory else "",
-            f"{feature.sim} " if feature.sim else "",
-            f"{feature.diagonal} " if feature.diagonal else ""
-        ]).strip()
-    variant_name = f"{model_name} {color_name} {text_variant}"
-    return variant_name
-
 async def safe_edit_message(callback: types.CallbackQuery, text: str=None, reply_markup=None, media=None):
     try:
         if media:
@@ -335,7 +319,10 @@ async def safe_edit_message(callback: types.CallbackQuery, text: str=None, reply
                 reply_markup=reply_markup
             )
         else:
-            await callback.message.edit_text(text, reply_markup=reply_markup)
+            try:
+                await callback.message.edit_text(text, reply_markup= await reply_markup)
+            except Exception:
+                await callback.message.edit_text(text, reply_markup= reply_markup)    
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
             return
@@ -345,13 +332,16 @@ async def safe_edit_message(callback: types.CallbackQuery, text: str=None, reply
             except Exception:
                 pass
 
-            await callback.message.answer(text, reply_markup=reply_markup)
+            try:
+                await callback.message.edit_text(text, reply_markup= await reply_markup)
+            except Exception:
+                await callback.message.edit_text(text, reply_markup= reply_markup)
 
 #callback для корзины
 @router.callback_query(F.data == "cart", StateFilter("*"))
 async def show_cart(callback: types.CallbackQuery, state: FSMContext):
-    cart_items = get_cart_items(callback.from_user.id)
-    cart_sum = count_cart_sum(callback.from_user.id)
+    cart_items = await get_cart_items(callback.from_user.id)
+    cart_sum = await count_cart_sum(callback.from_user.id)
 
     if cart_items:
         text = (
@@ -377,7 +367,7 @@ async def show_cart(callback: types.CallbackQuery, state: FSMContext):
 #callback для удаления товаров из корзины
 @router.callback_query(F.data == "drop_kart")
 async def clear_user_cart_items(callback: types.CallbackQuery):
-    clear_user_cart(callback.from_user.id)
+    await clear_user_cart(callback.from_user.id)
     text = "Ваша корзина очищена"
     await callback.message.edit_text(text, reply_markup=keyboards.inline.kart_kb)
 
@@ -387,9 +377,9 @@ async def send_order(callback: types.CallbackQuery, bot: Bot):
     user_id = callback.from_user.id
     username = callback.from_user.username
     date = callback.message.date
-    order = make_order(user_id, date)
+    order =  await make_order(user_id, date)
     if order:
-        admins, text = make_message(order.id, username)
+        admins, text = await make_message(order.id, username)
         for admin in admins:
             await bot.send_message(admin.id, text)
         text = "Ваша заказ отправлен менеджеру в ближайшее время с вами свяжутся"
@@ -404,9 +394,9 @@ async def send_order(callback: types.CallbackQuery, bot: Bot):
             raise
     await callback.answer()
 
-def make_message(order_id, username):
-    admins = get_admins()
-    order_items = get_order_details(order_id)
+async def make_message(order_id, username):
+    admins = await get_admins()
+    order_items = await get_order_details(order_id)
     text = (
             f"Заказ № {order_id} от пользователя @{username}:\n\n" + "\n\n"
             .join(["".join([
@@ -463,13 +453,13 @@ async def go_back(callback: types.CallbackQuery, state: FSMContext):
             await safe_edit_message(
                 callback,
                 "Ошибка при возврате назад. Попробуйте снова.",
-                reply_markup=keyboards.inline.menu_kb
+                reply_markup= keyboards.inline.menu_kb
             )
     else:
         await safe_edit_message(
             callback,
             "Неизвестное состояние. Возвращаемся в главное меню.",
-            reply_markup=keyboards.inline.menu_kb
+            reply_markup= keyboards.inline.menu_kb
         )
 
     await callback.answer()
@@ -484,7 +474,7 @@ async def process_category_selection(callback: types.CallbackQuery):
                  "\n\nℹ️ <b>Обратите внимание:</b>"
                  "\nИнформация, представленная в данном Telegram-боте, не является публичной офертой."
                  "\nУточнить наличие и цену можно у нашего менеджера после оформления заказа.",
-            reply_markup=keyboards.inline.menu_kb
+            reply_markup= keyboards.inline.menu_kb
         )
 
     except TelegramBadRequest as e:
