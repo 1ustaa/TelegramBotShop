@@ -4,34 +4,76 @@ from sqlalchemy import select, func, desc
 from data.model import (
     AsyncSessionLocal,
     Categories,
-    Manufacturers,
-    Models,
-    manufacturer_category,
+    AccessoryBrands,
+    DeviceBrands,
+    DeviceModels,
+    Series,
     Colors,
-    ModelVariants
+    Products
 )
-from data.crud import count_models_variants, query_models_variants
 from keyboards.inline import main_menu_button, back_button
 
 MAX_PAGE_SIZE = 6
 
 # =============================
-# Важно! AsyncSessionLocal используется для асинхронных запросов к БД через SQLAlchemy.
-# Основное отличие: используется 'async with' для открытия сессии и 'await' для всех запросов.
-# Все обращения к базе должны быть await, а результаты получать через .scalars()/.fetchall() и пр.
-# Пример ниже (см. функцию categories_kb).
+# ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 # =============================
-async def categories_kb(page=0 ,page_size: int=MAX_PAGE_SIZE):
+
+def count_pages(count, page_size, page):
+    """Подсчет страниц для пагинации"""
+    total_pages = (count + page_size - 1) // page_size
+    page = page % total_pages if total_pages > 0 else 0
+    return page, total_pages
+
+def make_pagination_buttons(prefix: str, items: list, total_pages: int, page: int) -> list:
+    """
+    Создание кнопок пагинации
+    :param prefix: префикс для callback_data (например, 'pg_category')
+    :param items: список данных для callback_data
+    :param total_pages: общее количество страниц
+    :param page: текущая страница
+    :return: список кнопок
+    """
+    if items:
+        callback_data_string = "_" + "_".join(str(item) for item in items)
+    else:
+        callback_data_string = ""
+
+    pagination_buttons = []
+    if total_pages > 1:
+        prev_page = (page - 1) if page > 0 else total_pages - 1
+        next_page = (page + 1) % total_pages
+
+        pagination_buttons.append(
+            InlineKeyboardButton(
+                text="⬅️",
+                callback_data=f"{prefix}_prev{callback_data_string}_{prev_page}"
+            )
+        )
+        pagination_buttons.append(
+            InlineKeyboardButton(
+                text="➡️",
+                callback_data=f"{prefix}_next{callback_data_string}_{next_page}"
+            )
+        )
+    return pagination_buttons
+
+# =============================
+# КЛАВИАТУРЫ ДЛЯ ВЫБОРА
+# =============================
+
+async def categories_kb(page=0, page_size: int = MAX_PAGE_SIZE):
+    """Клавиатура выбора категории"""
     async with AsyncSessionLocal() as session:
-        # Асинхронно считаем количество категорий
         result_count = await session.execute(select(func.count()).select_from(Categories))
         categories_count = result_count.scalar_one()
         page, total_pages = count_pages(categories_count, page_size, page)
-        # Асинхронно получаем список категорий
+        
         result = await session.execute(
             select(Categories)
             .offset(page * page_size)
             .limit(page_size)
+            .order_by(Categories.name)
         )
         categories = result.scalars().all()
 
@@ -46,168 +88,369 @@ async def categories_kb(page=0 ,page_size: int=MAX_PAGE_SIZE):
     builder.row(main_menu_button())
     return builder.as_markup()
 
-# --- Асинхронная замена manufacturer_kb ---
-async def manufacturer_kb(category_id, page=0, page_size: int=MAX_PAGE_SIZE):
+async def accessory_brands_kb(category_id: int = None, page=0, page_size: int = MAX_PAGE_SIZE):
+    """Клавиатура выбора бренда аксессуара"""
+    if not category_id:
+        # Если нет категории, возвращаем пустую клавиатуру с кнопкой назад
+        builder = InlineKeyboardBuilder()
+        builder.row(back_button())
+        builder.row(main_menu_button())
+        return builder.as_markup()
+    
     async with AsyncSessionLocal() as session:
-        manufacturer_count = await session.execute(
-            select(func.count()).select_from(Manufacturers).join(manufacturer_category)
-            .where(manufacturer_category.c.category_id == category_id)
+        # Получаем уникальные бренды аксессуаров для выбранной категории
+        stmt = (
+            select(AccessoryBrands)
+            .join(Products, Products.accessory_brand_id == AccessoryBrands.id)
+            .where(
+                Products.category_id == category_id,
+                Products.is_active == True
+            )
+            .distinct()
+            .order_by(AccessoryBrands.name)
         )
-        manufacturer_count = manufacturer_count.scalar_one()
-        page, total_pages = count_pages(manufacturer_count, page_size, page)
-        manufacturers = await session.execute(
-            select(Manufacturers)
-            .join(manufacturer_category)
-            .where(manufacturer_category.c.category_id == category_id)
-            .offset(page * page_size)
-            .limit(page_size)
+        
+        brands_count = await session.execute(
+            select(func.count(func.distinct(AccessoryBrands.id)))
+            .select_from(AccessoryBrands)
+            .join(Products, Products.accessory_brand_id == AccessoryBrands.id)
+            .where(
+                Products.category_id == category_id,
+                Products.is_active == True
+            )
         )
-        manufacturers = manufacturers.scalars().all()
+        brands_count = brands_count.scalar_one()
+        page, total_pages = count_pages(brands_count, page_size, page)
+        
+        result = await session.execute(stmt.offset(page * page_size).limit(page_size))
+        brands = result.scalars().all()
 
     builder = InlineKeyboardBuilder()
-    for manufacturer in manufacturers:
-        builder.button(text=manufacturer.name, callback_data=f"manufacturer_{manufacturer.id}")
+    for brand in brands:
+        builder.button(text=brand.name, callback_data=f"accessory_brand_{brand.id}")
     builder.adjust(2)
 
-    pg_buttons = make_pagination_buttons("pg_manufacturer", [category_id], total_pages, page)
+    pg_buttons = make_pagination_buttons("pg_accessory_brand", [category_id], total_pages, page)
     builder.row(*pg_buttons)
 
     builder.row(back_button())
     builder.row(main_menu_button())
     return builder.as_markup()
 
-# --- Асинхронная замена models_kb ---
-async def models_kb(category_id: int, manufacturer_id: int, page: int = 0, page_size: int = MAX_PAGE_SIZE):
+async def device_brands_kb(category_id: int, accessory_brand_id: int, page=0, page_size: int = MAX_PAGE_SIZE):
+    """Клавиатура выбора бренда устройства"""
     async with AsyncSessionLocal() as session:
+        stmt = (
+            select(DeviceBrands)
+            .join(DeviceModels, DeviceModels.device_brand_id == DeviceBrands.id)
+            .join(Products, Products.device_model_id == DeviceModels.id)
+            .where(
+                Products.category_id == category_id,
+                Products.accessory_brand_id == accessory_brand_id,
+                Products.is_active == True
+            )
+            .distinct()
+            .order_by(DeviceBrands.name)
+        )
+        
+        brands_count = await session.execute(
+            select(func.count(func.distinct(DeviceBrands.id)))
+            .select_from(DeviceBrands)
+            .join(DeviceModels, DeviceModels.device_brand_id == DeviceBrands.id)
+            .join(Products, Products.device_model_id == DeviceModels.id)
+            .where(
+                Products.category_id == category_id,
+                Products.accessory_brand_id == accessory_brand_id,
+                Products.is_active == True
+            )
+        )
+        brands_count = brands_count.scalar_one()
+        page, total_pages = count_pages(brands_count, page_size, page)
+        
+        result = await session.execute(stmt.offset(page * page_size).limit(page_size))
+        device_brands = result.scalars().all()
+
+    builder = InlineKeyboardBuilder()
+    for brand in device_brands:
+        builder.button(text=brand.name, callback_data=f"device_brand_{brand.id}")
+    builder.adjust(2)
+
+    pg_buttons = make_pagination_buttons("pg_device_brand", [category_id, accessory_brand_id], total_pages, page)
+    builder.row(*pg_buttons)
+
+    builder.row(back_button())
+    builder.row(main_menu_button())
+    return builder.as_markup()
+
+async def device_models_kb(
+    category_id: int,
+    accessory_brand_id: int,
+    device_brand_id: int = None,
+    page=0,
+    page_size: int = MAX_PAGE_SIZE
+):
+    """Клавиатура выбора модели устройства"""
+    async with AsyncSessionLocal() as session:
+        stmt = (
+            select(DeviceModels)
+            .join(Products, Products.device_model_id == DeviceModels.id)
+            .where(
+                Products.category_id == category_id,
+                Products.accessory_brand_id == accessory_brand_id,
+                Products.is_active == True
+            )
+        )
+        
+        if device_brand_id:
+            stmt = stmt.where(DeviceModels.device_brand_id == device_brand_id)
+        
+        stmt = stmt.distinct().order_by(DeviceModels.name)
+        
         models_count = await session.execute(
-            select(func.count()).select_from(Models).where(
-                Models.category_id == category_id,
-                Models.manufacturer_id == manufacturer_id
+            select(func.count(func.distinct(DeviceModels.id)))
+            .select_from(DeviceModels)
+            .join(Products, Products.device_model_id == DeviceModels.id)
+            .where(
+                Products.category_id == category_id,
+                Products.accessory_brand_id == accessory_brand_id,
+                Products.is_active == True
             )
         )
         models_count = models_count.scalar_one()
         page, total_pages = count_pages(models_count, page_size, page)
-        models = await session.execute(
-            select(Models)
-            .where(
-                Models.category_id == category_id,
-                Models.manufacturer_id == manufacturer_id
-            )
-            .order_by(desc(Models.name))
-            .offset(page * page_size)
-            .limit(page_size)
-        )
-        models = models.scalars().all()
+        
+        result = await session.execute(stmt.offset(page * page_size).limit(page_size))
+        models = result.scalars().all()
 
     builder = InlineKeyboardBuilder()
     for model in models:
-        builder.button(text=model.name, callback_data=f"model_{model.id}")
+        # Загружаем связь с брендом
+        builder.button(text=model.name, callback_data=f"device_model_{model.id}")
     builder.adjust(2)
 
-    pg_buttons = make_pagination_buttons("pg_model", [category_id, manufacturer_id], total_pages, page)
+    params = [category_id, accessory_brand_id]
+    if device_brand_id:
+        params.append(device_brand_id)
+    pg_buttons = make_pagination_buttons("pg_device_model", params, total_pages, page)
     builder.row(*pg_buttons)
 
     builder.row(back_button())
     builder.row(main_menu_button())
     return builder.as_markup()
 
-# --- Асинхронная замена colors_kb ---
-async def colors_kb(model_id, page: int = 0, page_size: int = MAX_PAGE_SIZE):
+async def series_kb(
+    category_id: int,
+    accessory_brand_id: int,
+    device_model_id: int = None,
+    page=0,
+    page_size: int = MAX_PAGE_SIZE
+):
+    """Клавиатура выбора серии"""
     async with AsyncSessionLocal() as session:
-        subquery = (
-            select(Colors.id)
-            .join(ModelVariants, ModelVariants.color_id == Colors.id)
-            .where(ModelVariants.model_id == model_id)
-            .distinct()
+        stmt = (
+            select(Series)
+            .join(Products, Products.series_id == Series.id)
+            .where(
+                Products.category_id == category_id,
+                Products.accessory_brand_id == accessory_brand_id,
+                Products.is_active == True
+            )
         )
-        colors_count = await session.execute(select(func.count()).select_from(subquery.subquery()))
+        
+        if device_model_id:
+            stmt = stmt.where(Products.device_model_id == device_model_id)
+        
+        stmt = stmt.distinct().order_by(Series.name)
+        
+        series_count = await session.execute(
+            select(func.count(func.distinct(Series.id)))
+            .select_from(Series)
+            .join(Products, Products.series_id == Series.id)
+            .where(
+                Products.category_id == category_id,
+                Products.accessory_brand_id == accessory_brand_id,
+                Products.is_active == True
+            )
+        )
+        series_count = series_count.scalar_one()
+        page, total_pages = count_pages(series_count, page_size, page)
+        
+        result = await session.execute(stmt.offset(page * page_size).limit(page_size))
+        series_list = result.scalars().all()
+
+    builder = InlineKeyboardBuilder()
+    for s in series_list:
+        builder.button(text=s.name, callback_data=f"series_{s.id}")
+    builder.adjust(2)
+
+    params = [category_id, accessory_brand_id]
+    if device_model_id:
+        params.append(device_model_id)
+    pg_buttons = make_pagination_buttons("pg_series", params, total_pages, page)
+    builder.row(*pg_buttons)
+
+    builder.row(back_button())
+    builder.row(main_menu_button())
+    return builder.as_markup()
+
+async def colors_kb(
+    category_id: int,
+    accessory_brand_id: int,
+    device_model_id: int = None,
+    series_id: int = None,
+    page=0,
+    page_size: int = MAX_PAGE_SIZE
+):
+    """Клавиатура выбора цвета"""
+    async with AsyncSessionLocal() as session:
+        stmt = (
+            select(Colors)
+            .join(Products, Products.color_id == Colors.id)
+            .where(
+                Products.category_id == category_id,
+                Products.accessory_brand_id == accessory_brand_id,
+                Products.is_active == True
+            )
+        )
+        
+        if device_model_id:
+            stmt = stmt.where(Products.device_model_id == device_model_id)
+        if series_id:
+            stmt = stmt.where(Products.series_id == series_id)
+        
+        stmt = stmt.distinct().order_by(Colors.name)
+        
+        colors_count = await session.execute(
+            select(func.count(func.distinct(Colors.id)))
+            .select_from(Colors)
+            .join(Products, Products.color_id == Colors.id)
+            .where(
+                Products.category_id == category_id,
+                Products.accessory_brand_id == accessory_brand_id,
+                Products.is_active == True
+            )
+        )
         colors_count = colors_count.scalar_one()
         page, total_pages = count_pages(colors_count, page_size, page)
-        colors = await session.execute(
-            select(Colors)
-            .join(ModelVariants, ModelVariants.color_id == Colors.id)
-            .where(ModelVariants.model_id == model_id)
-            .distinct()
-            .order_by(Colors.name)
-            .offset(page * page_size)
-            .limit(page_size)
-        )
-        colors = colors.scalars().all()
+        
+        result = await session.execute(stmt.offset(page * page_size).limit(page_size))
+        colors = result.scalars().all()
 
     builder = InlineKeyboardBuilder()
     for color in colors:
         builder.button(text=color.name, callback_data=f"color_{color.id}")
     builder.adjust(2)
 
-    pg_buttons = make_pagination_buttons("pg_color", [model_id], total_pages, page)
+    params = [category_id, accessory_brand_id]
+    if device_model_id:
+        params.append(device_model_id)
+    if series_id:
+        params.append(series_id)
+    pg_buttons = make_pagination_buttons("pg_color", params, total_pages, page)
     builder.row(*pg_buttons)
 
     builder.row(back_button())
     builder.row(main_menu_button())
     return builder.as_markup()
 
-# --- Асинхронная замена variants_kb ---
-async def variants_kb(model_id, color_id, page: int = 0, page_size: int = MAX_PAGE_SIZE):
-    from data.crud import query_models_variants, count_models_variants
-    # Здесь query_models_variants и count_models_variants по TODO надо сделать асинхронными,
-    # а тут пока пример обращения, далее заменить на async-вызовы, когда появятся.
+async def products_kb(
+    category_id: int,
+    accessory_brand_id: int,
+    device_model_id: int = None,
+    series_id: int = None,
+    color_id: int = None,
+    page=0,
+    page_size: int = MAX_PAGE_SIZE
+):
+    """Клавиатура выбора конкретного продукта"""
     async with AsyncSessionLocal() as session:
-        # TODO: заменить на асинхронные аналоги
-        variants_count = await count_models_variants(model_id, color_id)
-        page, total_pages = count_pages(variants_count, page_size, page)
-        variants = await query_models_variants(model_id, color_id, None, page * page_size, page_size)
+        stmt = (
+            select(Products)
+            .where(
+                Products.category_id == category_id,
+                Products.accessory_brand_id == accessory_brand_id,
+                Products.is_active == True
+            )
+        )
+        
+        if device_model_id:
+            stmt = stmt.where(Products.device_model_id == device_model_id)
+        if series_id:
+            stmt = stmt.where(Products.series_id == series_id)
+        if color_id:
+            stmt = stmt.where(Products.color_id == color_id)
+        
+        products_count = await session.execute(
+            select(func.count(Products.id))
+            .where(
+                Products.category_id == category_id,
+                Products.accessory_brand_id == accessory_brand_id,
+                Products.is_active == True
+            )
+        )
+        products_count = products_count.scalar_one()
+        page, total_pages = count_pages(products_count, page_size, page)
+        
+        result = await session.execute(
+            stmt.offset(page * page_size).limit(page_size).order_by(Products.id)
+        )
+        products = result.scalars().all()
 
     builder = InlineKeyboardBuilder()
-    for variant in variants:
-        text = "".join([
-            f"{variant.memory} " if variant.memory else "",
-            f"{variant.sim} " if variant.sim else "",
-            f"{variant.diagonal} " if variant.diagonal else "",
-            f"{variant.price} руб " if variant.price else "цену уточнять"
-        ]).strip()
-        builder.button(text=text, callback_data=f"variant_{variant.id}")
+    for product in products:
+        # Создаем текст кнопки с ценой
+        text = f"{product.price} руб" if product.price else "Цену уточнять"
+        if product.variation:
+            text = f"{product.variation} - {text}"
+        builder.button(text=text, callback_data=f"product_{product.id}")
     builder.adjust(1)
 
-    pg_buttons = make_pagination_buttons("pg_variant", [model_id, color_id], total_pages, page)
+    params = [category_id, accessory_brand_id]
+    if device_model_id:
+        params.append(device_model_id)
+    if series_id:
+        params.append(series_id)
+    if color_id:
+        params.append(color_id)
+    pg_buttons = make_pagination_buttons("pg_product", params, total_pages, page)
     builder.row(*pg_buttons)
+
     builder.row(back_button())
     builder.row(main_menu_button())
     return builder.as_markup()
 
-def make_pagination_buttons(prefix: str, items: list, total_pages: int, page: int) -> list:
-    """
-    :param prefix: str — префикс для callback_data (например, 'pg_model')
-    :param items: list — список данных, включаемых в callback_data (например: [category_id, manufacturer_id, ...])
-    :param total_pages: int — общее количество страниц
-    :param page: int — текущая страница
-    :return: list — список из InlineKeyboardButton'ов (⬅️ и ➡️ при необходимости)
-    """
+def product_kb():
+    """Клавиатура для карточки продукта (переход к выбору количества)"""
+    from keyboards.inline import InlineKeyboardMarkup, InlineKeyboardButton
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Выбрать количество", callback_data="select_quantity")],
+            [back_button()],
+            [main_menu_button()]
+        ]
+    )
 
-    if items:
-        callback_data_string = "_" + "_".join(str(item) for item in items)
-    else:
-        callback_data_string = ""
-
-    pagination_buttons = []
-    if total_pages > 1:
-        prev_page = (page - 1) if page > 0 else total_pages - 1
-        next_page = (page + 1) % total_pages
-
-        pagination_buttons.append(
-            InlineKeyboardButton(
-                text="⬅️",
-                callback_data = f"{prefix}_prev{callback_data_string}_{prev_page}"
+def quantity_kb():
+    """Клавиатура выбора количества (кейпад 1-9)"""
+    from keyboards.inline import InlineKeyboardMarkup, InlineKeyboardButton
+    
+    buttons = []
+    # Создаем кейпад 1-9
+    for row in range(3):
+        row_buttons = []
+        for col in range(3):
+            num = row * 3 + col + 1
+            row_buttons.append(
+                InlineKeyboardButton(text=str(num), callback_data=f"qty_{num}")
             )
-        )
-        pagination_buttons.append(
-            InlineKeyboardButton(
-                text="➡️",
-                callback_data = f"{prefix}_next{callback_data_string}_{next_page}"
-            )
-        )
-    return pagination_buttons
-
-def count_pages(count, page_size, page):
-    total_pages = (count + page_size - 1) // page_size
-    page = page % total_pages if total_pages > 0 else 0
-    return page, total_pages
+        buttons.append(row_buttons)
+    
+    # Добавляем кнопки управления
+    buttons.append([
+        InlineKeyboardButton(text="⬅️ Стереть", callback_data="qty_backspace"),
+        InlineKeyboardButton(text="0", callback_data="qty_0"),
+        InlineKeyboardButton(text="✅ Добавить", callback_data="qty_confirm")
+    ])
+    buttons.append([back_button(), main_menu_button()])
+    
+    return InlineKeyboardMarkup(inline_keyboard=buttons)

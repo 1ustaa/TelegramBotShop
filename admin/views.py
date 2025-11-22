@@ -11,17 +11,27 @@ from markupsafe import Markup
 import os
 from io import BytesIO
 import pandas as pd
-# from data.crud import import_from_excel
-from data.model import (Categories,
-                        Manufacturers,
-                        Models,
-                        Colors,
-                        SimCards,
-                        MemoryStorage,
-                        ModelVariants,
-                        ModelsImages,
-                        Diagonals,
-                        Admins)
+
+from data.model import (
+    Categories,
+    AccessoryBrands,
+    DeviceBrands,
+    DeviceModels,
+    Series,
+    Colors,
+    Products,
+    ProductImages,
+    Admins,
+    Customers,
+    Orders,
+    OrderStatuses,
+    OrderItems,
+    CartItems
+)
+
+# =============================
+# VIEWS ДЛЯ ОСНОВНЫХ СУЩНОСТЕЙ
+# =============================
 
 class CategoriesView(ModelView):
     datamodel = SQLAInterface(Categories)
@@ -29,38 +39,57 @@ class CategoriesView(ModelView):
     columns = ["name"]
     list_columns = add_columns = edit_columns = show_columns = columns
 
-    exclude_list = ["models", "manufacturers"]
-    add_exclude_columns = search_exclude_columns =  edit_exclude_columns = show_exclude_columns = exclude_list
+    exclude_list = ["products"]
+    add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
 
     label_columns = {"name": "Категория"}
 
-class ManufacturersView(ModelView):
-    datamodel = SQLAInterface(Manufacturers)
+class AccessoryBrandsView(ModelView):
+    datamodel = SQLAInterface(AccessoryBrands)
 
-    columns = ["name", "categories"]
+    columns = ["name"]
     list_columns = add_columns = edit_columns = show_columns = columns
 
-    exclude_list = ["models"]
-    add_exclude_columns = search_exclude_columns =  edit_exclude_columns = show_exclude_columns = exclude_list
+    exclude_list = ["products"]
+    add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
 
-    label_columns = {"name": "Производитель",
-                     "categories": "Категории"}
+    label_columns = {"name": "Бренд аксессуара"}
 
-class ModelsView(ModelView):
-    datamodel = SQLAInterface(Models)
+class DeviceBrandsView(ModelView):
+    datamodel = SQLAInterface(DeviceBrands)
 
-    columns = ["category", "manufacturer", "name"]
+    columns = ["name"]
     list_columns = add_columns = edit_columns = show_columns = columns
 
-    exclude_list = ["images", "model_variants"]
-    add_exclude_columns = search_exclude_columns =  edit_exclude_columns = show_exclude_columns = exclude_list
+    exclude_list = ["device_models"]
+    add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
 
-    label_columns = {"name": "Модель",
-                     "category": "Категория",
-                     "manufacturer": "Производитель",
-                     "color": "Цвет",
-                     "model_variants": "Вариант",
-                     "description": "Описание"}
+    label_columns = {"name": "Бренд устройства"}
+
+class DeviceModelsView(ModelView):
+    datamodel = SQLAInterface(DeviceModels)
+
+    columns = ["name", "device_brand"]
+    list_columns = add_columns = edit_columns = show_columns = columns
+
+    exclude_list = ["products"]
+    add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
+
+    label_columns = {
+        "name": "Модель устройства",
+        "device_brand": "Бренд устройства"
+    }
+
+class SeriesView(ModelView):
+    datamodel = SQLAInterface(Series)
+
+    columns = ["name"]
+    list_columns = add_columns = edit_columns = show_columns = columns
+
+    exclude_list = ["products"]
+    add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
+
+    label_columns = {"name": "Серия"}
 
 class ColorsView(ModelView):
     datamodel = SQLAInterface(Colors)
@@ -70,62 +99,69 @@ class ColorsView(ModelView):
 
     label_columns = {"name": "Цвет"}
 
-    exclude_list = ["images", "variants"]
-    add_exclude_columns = search_exclude_columns =  edit_exclude_columns = show_exclude_columns = exclude_list
+    exclude_list = ["products", "images"]
+    add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
 
-class SimCardsView(ModelView):
-    datamodel = SQLAInterface(SimCards)
+# =============================
+# VIEWS ДЛЯ ПРОДУКТОВ
+# =============================
 
-    list_columns = ["name"]
-    label_columns = {"name": "Симкарты"}
+class ProductsView(ModelView):
+    datamodel = SQLAInterface(Products)
 
-class MemoryStorageView(ModelView):
-    datamodel = SQLAInterface(MemoryStorage)
+    list_columns = [
+        "category",
+        "accessory_brand",
+        "device_model",
+        "series",
+        "variation",
+        "color",
+        "price",
+        "is_active"
+    ]
+    
+    add_columns = edit_columns = show_columns = [
+        "category",
+        "accessory_brand",
+        "device_model",
+        "series",
+        "variation",
+        "color",
+        "price",
+        "description",
+        "is_active"
+    ]
 
-    list_columns = ["name", "quantity"]
-    label_columns = {"name": "Память",
-                     "quantity": "Количество Gb"}
+    label_columns = {
+        "category": "Категория",
+        "accessory_brand": "Бренд аксессуара",
+        "device_model": "Модель устройства",
+        "series": "Серия",
+        "variation": "Вариация",
+        "color": "Цвет",
+        "price": "Цена",
+        "description": "Описание",
+        "is_active": "Активно"
+    }
 
-class DiagonalsView(ModelView):
-    datamodel = SQLAInterface(Diagonals)
+    exclude_list = ["images"]
+    add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
 
-    list_columns = ["name", "quantity"]
-    label_columns = {"name": "Диагональ",
-                     "quantity": "Количество дюймов"}
-
-class ModelVariantsView(ModelView):
-    datamodel = SQLAInterface(ModelVariants)
-
-    list_columns = ["model", "color", "sim", "memory", "diagonal", "price", "description", "is_active"]
-    label_columns = {"model": "Устройство",
-                     "color": "Цвет",
-                     "sim": "Сим-карта",
-                     "memory": "Память",
-                     "diagonal": "Диагональ",
-                     "price": "Цена",
-                     "description": "Описание",
-                     "is_active": "Активно"
-                     }
-
-class AdminsView(ModelView):
-    datamodel = SQLAInterface(Admins)
-
-    columns = ["id", "username"]
-    list_columns = add_columns = edit_columns = show_columns = columns
-
-class ModelsImagesView(ModelView):
-    datamodel = SQLAInterface(ModelsImages)
+class ProductImagesView(ModelView):
+    datamodel = SQLAInterface(ProductImages)
 
     add_form_extra_fields = {
         "upload": FileField("Фото", render_kw={"accept": "image/*"})
     }
 
-    list_columns = ['model', 'color', 'is_main']
-    add_columns = ['model', 'color', 'upload', 'is_main']
-    label_columns = {"model": "Устройство",
-                     "color": "Цвет",
-                     "is_main": "Главное"
-                     }
+    list_columns = ['product', 'color', 'is_main']
+    add_columns = ['product', 'color', 'upload', 'is_main']
+    
+    label_columns = {
+        "product": "Продукт",
+        "color": "Цвет",
+        "is_main": "Главное"
+    }
 
     exclude_list = ["path"]
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
@@ -154,6 +190,88 @@ class ModelsImagesView(ModelView):
                 except Exception as e:
                     print(f"Ошибка удаления файла: {e}")
 
+# =============================
+# VIEWS ДЛЯ ПОЛЬЗОВАТЕЛЕЙ И ЗАКАЗОВ
+# =============================
+
+class CustomersView(ModelView):
+    datamodel = SQLAInterface(Customers)
+
+    list_columns = ["telegram_id", "username"]
+    show_columns = ["telegram_id", "username", "orders", "cart_items"]
+
+    label_columns = {
+        "telegram_id": "Telegram ID",
+        "username": "Имя пользователя",
+        "orders": "Заказы",
+        "cart_items": "Корзина"
+    }
+
+    exclude_list = []
+    add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
+
+class OrdersView(ModelView):
+    datamodel = SQLAInterface(Orders)
+
+    list_columns = ["id", "customer", "created_at", "status", "total_price"]
+    show_columns = ["id", "customer", "created_at", "status", "total_price", "items"]
+    
+    edit_columns = ["status"]
+
+    label_columns = {
+        "id": "№ Заказа",
+        "customer": "Клиент",
+        "created_at": "Дата создания",
+        "status": "Статус",
+        "total_price": "Сумма",
+        "items": "Товары"
+    }
+
+class OrderItemsView(ModelView):
+    datamodel = SQLAInterface(OrderItems)
+
+    list_columns = ["order", "product", "quantity"]
+    
+    label_columns = {
+        "order": "Заказ",
+        "product": "Товар",
+        "quantity": "Количество"
+    }
+
+class OrderStatusesView(ModelView):
+    datamodel = SQLAInterface(OrderStatuses)
+
+    list_columns = ["name"]
+    add_columns = edit_columns = show_columns = ["name"]
+
+    label_columns = {"name": "Статус заказа"}
+
+class CartItemsView(ModelView):
+    datamodel = SQLAInterface(CartItems)
+
+    list_columns = ["customer", "product", "quantity"]
+    
+    label_columns = {
+        "customer": "Клиент",
+        "product": "Товар",
+        "quantity": "Количество"
+    }
+
+class AdminsView(ModelView):
+    datamodel = SQLAInterface(Admins)
+
+    columns = ["id", "username"]
+    list_columns = add_columns = edit_columns = show_columns = columns
+
+    label_columns = {
+        "id": "Telegram ID",
+        "username": "Имя пользователя"
+    }
+
+# =============================
+# EXCEL UPLOAD VIEW
+# =============================
+
 class ExcelUploadView(BaseView):
     route_base = "/excel_upload"
     default_view = "upload"
@@ -176,7 +294,8 @@ class ExcelUploadView(BaseView):
                     file_path = os.path.join(self.upload_folder, filename)
                     file.save(file_path)
                     flash("Файл успешно загружен", "success")
-                    import_from_excel(file_path)
+                    # Здесь можно добавить функцию импорта
+                    # import_from_excel(file_path)
                     os.remove(file_path)
                     return redirect(request.url)
                 else:

@@ -28,16 +28,12 @@ AsyncSessionLocal = sessionmaker(
     autocommit=False,
 )
 
-Session = sessionmaker(bind=engine)
-session = Session()
-
-#Таблица Категория
+# Таблица Категория аксессуаров
 class Categories(Base):
     __tablename__ = "categories"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False, unique=True)
-    models = relationship("Models", back_populates="category")
-    manufacturers = relationship("Manufacturers", secondary="manufacturer_category", back_populates="categories")
+    products = relationship("Products", back_populates="category")
 
     def __str__(self):
         return self.name
@@ -45,13 +41,12 @@ class Categories(Base):
     def __repr__(self):
         return self.name
 
-#Таблица Производитель
-class Manufacturers(Base):
-    __tablename__ = "manufacturers"
+# Таблица Бренд аксессуара
+class AccessoryBrands(Base):
+    __tablename__ = "accessory_brands"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, unique=True, nullable=False)
-    models = relationship("Models", back_populates="manufacturer")
-    categories = relationship("Categories", secondary="manufacturer_category", back_populates="manufacturers")
+    name = Column(String(100), nullable=False, unique=True)
+    products = relationship("Products", back_populates="accessory_brand")
 
     def __str__(self):
         return self.name
@@ -59,52 +54,58 @@ class Manufacturers(Base):
     def __repr__(self):
         return self.name
 
-#Таблица для связи категорий и производителей
-manufacturer_category = Table(
-    "manufacturer_category",
-    Base.metadata,
-    Column("manufacturer_id", Integer, ForeignKey("manufacturers.id"), primary_key=True),
-    Column("category_id", Integer, ForeignKey("categories.id"), primary_key=True)
-)
-
-class Models(Base):
-    __tablename__ = "models"
+# Таблица Бренд устройства (для совместимости аксессуара)
+class DeviceBrands(Base):
+    __tablename__ = "device_brands"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False, unique=True)
-    images = relationship("ModelsImages", back_populates="model", cascade="all, delete-orphan")
-    model_variants = relationship("ModelVariants", back_populates="model")
-
-    category_id = Column(Integer, ForeignKey("categories.id"))
-    category = relationship("Categories", back_populates="models")
-
-    manufacturer_id = Column(Integer, ForeignKey("manufacturers.id"))
-    manufacturer = relationship("Manufacturers", back_populates="models")
+    name = Column(String(100), nullable=False, unique=True)
+    device_models = relationship("DeviceModels", back_populates="device_brand")
 
     def __str__(self):
-        return f"{self.category} {self.manufacturer} {self.name}"
+        return self.name
 
     def __repr__(self):
-        return f"{self.category} {self.manufacturer} {self.name}"
+        return self.name
 
-class ModelsImages(Base):
-    __tablename__ = "models_images"
-    __table_args__ = (UniqueConstraint("model_id", "color_id", name="uix_images_variant"),)
-    id = Column(Integer, primary_key=True)
-    path = Column(String, nullable=False)
-    is_main = Column(Boolean, default=False)
+# Таблица Модель устройства (для совместимости аксессуара)
+class DeviceModels(Base):
+    __tablename__ = "device_models"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+    
+    device_brand_id = Column(Integer, ForeignKey("device_brands.id"), nullable=True)
+    device_brand = relationship("DeviceBrands", back_populates="device_models")
+    
+    products = relationship("Products", back_populates="device_model")
 
-    model_id = Column(Integer, ForeignKey("models.id", ondelete="CASCADE"))
-    model = relationship("Models", back_populates="images")
+    def __str__(self):
+        if self.device_brand:
+            return f"{self.device_brand.name} {self.name}"
+        return self.name
 
-    color_id = Column(Integer, ForeignKey("colors.id", ondelete="CASCADE"))
-    color = relationship("Colors", back_populates="images")
+    def __repr__(self):
+        return self.__str__()
 
+# Таблица Серия аксессуара
+class Series(Base):
+    __tablename__ = "series"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)
+    products = relationship("Products", back_populates="series")
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.name
+
+# Таблица Цвет
 class Colors(Base):
     __tablename__ = "colors"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False, unique=True)
-    variants = relationship("ModelVariants", back_populates="color")
-    images = relationship("ModelsImages", back_populates="color")
+    products = relationship("Products", back_populates="color")
+    images = relationship("ProductImages", back_populates="color")
 
     def __str__(self):
         return self.name
@@ -112,66 +113,70 @@ class Colors(Base):
     def __repr__(self):
         return self.name
 
-#Таблица характеристика устройства
-class ModelVariants(Base):
-    __tablename__ = "model_variants"
-    __table_args__ = (UniqueConstraint("model_id", "sim_id", "memory_id", "color_id", "diagonal_id", name="uix_device_variant"),)
+# Главная таблица Продукт (Аксессуар)
+class Products(Base):
+    __tablename__ = "products"
     id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    # Название вариации (если есть специфичные различия внутри одной модели)
+    variation = Column(String(200), nullable=True)
+    
+    # Цена и описание
     price = Column(Integer, nullable=True)
     description = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True)
-
-    sim_id = Column(Integer, ForeignKey("sim_cards.id"), nullable=True)
-    sim = relationship("SimCards")
-
-    memory_id = Column(Integer, ForeignKey("memory_storage.id"), nullable=True)
-    memory = relationship("MemoryStorage")
-
-    model_id = Column(Integer, ForeignKey("models.id"))
-    model = relationship("Models", back_populates="model_variants")
-
-    diagonal_id = Column(Integer, ForeignKey("diagonals.id"))
-    diagonal = relationship("Diagonals")
-
-    color_id = Column(Integer, ForeignKey("colors.id"))
-    color = relationship("Colors", back_populates="variants")
-
-    def __str__(self):
-        return f"Sim: {self.sim}, Память: {self.memory}, Цена: {self.price} руб"
-
-class SimCards(Base):
-    __tablename__ = "sim_cards"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(50), nullable=False, unique=True)
+    
+    # Связи с другими таблицами
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
+    category = relationship("Categories", back_populates="products")
+    
+    accessory_brand_id = Column(Integer, ForeignKey("accessory_brands.id"), nullable=False)
+    accessory_brand = relationship("AccessoryBrands", back_populates="products")
+    
+    # Опциональные поля для совместимости с устройствами
+    device_model_id = Column(Integer, ForeignKey("device_models.id"), nullable=True)
+    device_model = relationship("DeviceModels", back_populates="products")
+    
+    series_id = Column(Integer, ForeignKey("series.id"), nullable=True)
+    series = relationship("Series", back_populates="products")
+    
+    color_id = Column(Integer, ForeignKey("colors.id"), nullable=True)
+    color = relationship("Colors", back_populates="products")
+    
+    # Изображения
+    images = relationship("ProductImages", back_populates="product", cascade="all, delete-orphan")
 
     def __str__(self):
-        return self.name
+        parts = []
+        if self.category:
+            parts.append(str(self.category))
+        if self.accessory_brand:
+            parts.append(str(self.accessory_brand))
+        if self.device_model:
+            parts.append(str(self.device_model))
+        if self.series:
+            parts.append(str(self.series))
+        if self.variation:
+            parts.append(self.variation)
+        if self.color:
+            parts.append(str(self.color))
+        return " ".join(parts)
 
     def __repr__(self):
-        return self.name
+        return self.__str__()
 
-class MemoryStorage(Base):
-    __tablename__ = "memory_storage"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(50), nullable=False, unique=True)
-    quantity = Column(Integer)
+# Таблица изображений продуктов
+class ProductImages(Base):
+    __tablename__ = "product_images"
+    id = Column(Integer, primary_key=True)
+    path = Column(String, nullable=False)
+    is_main = Column(Boolean, default=False)
 
-    def __str__(self):
-        return self.name
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    product = relationship("Products", back_populates="images")
 
-    def __repr__(self):
-        return self.name
-
-class Diagonals(Base):
-    __tablename__ = "diagonals"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(50), nullable=False, unique=True)
-
-    def __str__(self):
-        return self.name
-
-    def __repr__(self):
-        return self.name
+    color_id = Column(Integer, ForeignKey("colors.id", ondelete="CASCADE"), nullable=True)
+    color = relationship("Colors", back_populates="images")
 
 class Customers(Base):
     __tablename__ = "customers"
@@ -182,6 +187,12 @@ class Customers(Base):
     cart_items = relationship("CartItems", back_populates="customer")
     orders = relationship("Orders", back_populates="customer")
 
+    def __str__(self):
+        return f"{self.username} ({self.telegram_id})"
+
+    def __repr__(self):
+        return self.__str__()
+
 class CartItems(Base):
     __tablename__ = "cart_items"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -190,10 +201,15 @@ class CartItems(Base):
     quantity = Column(Integer, default=1)
     customer = relationship("Customers", back_populates="cart_items")
 
-    model_variant = relationship("ModelVariants")
-    model_variant_id = Column(Integer, ForeignKey("model_variants.id"), nullable=False)
+    product = relationship("Products")
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
 
-# TODO: Исправить колонку created_at убедиться что у нее формат дата + время
+    def __str__(self):
+        return f"{self.product} x {self.quantity}"
+
+    def __repr__(self):
+        return self.__str__()
+
 class Orders(Base):
     __tablename__ = "orders"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -206,6 +222,12 @@ class Orders(Base):
     customer = relationship("Customers", back_populates="orders")
     items  = relationship("OrderItems", back_populates="order", cascade="all, delete-orphan")
 
+    def __str__(self):
+        return f"Order #{self.id} - {self.total_price} руб"
+
+    def __repr__(self):
+        return self.__str__()
+
 class OrderItems(Base):
     __tablename__ = "order_items"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -213,8 +235,14 @@ class OrderItems(Base):
     quantity = Column(Integer, default=1)
 
     order = relationship("Orders", back_populates="items")
-    model_variant = relationship("ModelVariants")
-    model_variant_id = Column(Integer, ForeignKey("model_variants.id"), nullable=False)
+    product = relationship("Products")
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+
+    def __str__(self):
+        return f"{self.product} x {self.quantity}"
+
+    def __repr__(self):
+        return self.__str__()
 
 class Admins(Base):
     __tablename__ = "admins"
@@ -223,10 +251,10 @@ class Admins(Base):
     chat_id = Column(BigInteger, unique=True)
 
     def __str__(self):
-        return self.name
+        return self.username or f"Admin {self.id}"
 
     def __repr__(self):
-        return self.name
+        return self.__str__()
 
 class OrderStatuses(Base):
     __tablename__ = "order_statuses"
