@@ -49,12 +49,24 @@ async def safe_edit_message(callback: types.CallbackQuery, text: str = None, rep
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):
             return
-        else:
+        elif "there is no text in the message to edit" in str(e):
+            # Сообщение содержит медиа, пытаемся удалить и отправить новое текстовое
             try:
                 await callback.message.delete()
             except Exception:
+                # Не удалось удалить (возможно, старое сообщение) - просто отправим новое
                 pass
-
+            try:
+                await callback.message.answer(text, reply_markup=reply_markup)
+            except Exception as e2:
+                print(f"Ошибка отправки сообщения: {e2}")
+        else:
+            # Другая ошибка - также пытаемся удалить и отправить новое
+            try:
+                await callback.message.delete()
+            except Exception:
+                # Не удалось удалить (возможно, старое сообщение) - просто отправим новое
+                pass
             try:
                 await callback.message.answer(text, reply_markup=reply_markup)
             except Exception as e2:
@@ -169,13 +181,22 @@ async def transition_to_next_state(callback: types.CallbackQuery, state: FSMCont
             try:
                 # Теперь markup - это уже готовая клавиатура, а не корутина
                 await callback.message.edit_text(text, reply_markup=markup)
+            except TelegramBadRequest as e:
+                # Если сообщение содержит медиа, пытаемся удалить его и отправляем новое текстовое
+                if "there is no text in the message to edit" in str(e):
+                    try:
+                        await callback.message.delete()
+                    except Exception:
+                        # Не удалось удалить (возможно, старое сообщение) - просто отправим новое
+                        pass
+                    try:
+                        await callback.message.answer(text, reply_markup=markup)
+                    except Exception as e2:
+                        print(f"Ошибка при отправке сообщения: {e2}")
+                elif "message is not modified" not in str(e):
+                    print(f"Ошибка перехода к следующему состоянию: {e}")
             except Exception as e:
                 print(f"Ошибка перехода к следующему состоянию: {e}")
-                # Пытаемся отправить новое сообщение, если редактирование не удалось
-                try:
-                    await callback.message.answer(text, reply_markup=markup)
-                except Exception as e2:
-                    print(f"Ошибка отправки нового сообщения: {e2}")
     else:
         await callback.answer("Завершено")
 
@@ -516,10 +537,31 @@ async def start_quantity_selection(callback: types.CallbackQuery, state: FSMCont
     await state.update_data(selected_quantity="")
     
     text = "Выберите количество товара:"
-    await callback.message.edit_text(
-        text,
-        reply_markup=keyboards.builders.quantity_kb()
-    )
+    data = await state.get_data()
+    image_path = data.get("image_path")
+    
+    if image_path and os.path.exists(image_path):
+        # Если было фото, пытаемся удалить медиа-сообщение и отправить новое текстовое
+        try:
+            await callback.message.delete()
+        except Exception as e:
+            # Если не удалось удалить (например, сообщение старше 48 часов)
+            print(f"Не удалось удалить сообщение: {e}")
+        
+        # В любом случае отправляем новое сообщение
+        try:
+            await callback.message.answer(
+                text,
+                reply_markup=keyboards.builders.quantity_kb()
+            )
+        except Exception as e:
+            print(f"Ошибка при отправке сообщения: {e}")
+    else:
+        # Если нет фото, просто редактируем текст
+        await callback.message.edit_text(
+            text,
+            reply_markup=keyboards.builders.quantity_kb()
+        )
     
     await push_state(state, ChoseProduct.selecting_quantity)
     await callback.answer()
@@ -551,18 +593,21 @@ async def process_quantity_selection(callback: types.CallbackQuery, state: FSMCo
         product_info = await get_product_full_info(product_id)
         text = f"Товар добавлен в корзину!\nКоличество: {quantity} шт."
         
-        image_path = data.get("image_path")
-        if image_path and os.path.exists(image_path):
-            photo = FSInputFile(image_path)
-            await callback.message.edit_media(
-                media=InputMediaPhoto(media=photo, caption=text),
-                reply_markup=keyboards.inline.order_variant_kb
-            )
-        else:
-            await callback.message.edit_text(
+        # Пытаемся удалить предыдущее сообщение
+        try:
+            await callback.message.delete()
+        except Exception:
+            # Не удалось удалить (возможно, сообщение старше 48 часов) - ничего страшного
+            pass
+        
+        # В любом случае отправляем новое сообщение
+        try:
+            await callback.message.answer(
                 text,
                 reply_markup=keyboards.inline.order_variant_kb
             )
+        except Exception as e:
+            print(f"Ошибка при отправке сообщения: {e}")
         
         await callback.answer()
         
@@ -573,10 +618,25 @@ async def process_quantity_selection(callback: types.CallbackQuery, state: FSMCo
         
         display_qty = new_qty if new_qty else "0"
         text = f"Количество: {display_qty}"
-        await callback.message.edit_text(
-            text,
-            reply_markup=keyboards.builders.quantity_kb()
-        )
+        
+        # Просто редактируем текст без фото
+        try:
+            await callback.message.edit_text(
+                text,
+                reply_markup=keyboards.builders.quantity_kb()
+            )
+        except TelegramBadRequest as e:
+            # Если не удалось отредактировать, пытаемся удалить и отправить новое
+            try:
+                await callback.message.delete()
+            except Exception:
+                # Не удалось удалить (возможно, старое сообщение) - просто отправим новое
+                pass
+            
+            try:
+                await callback.message.answer(text, reply_markup=keyboards.builders.quantity_kb())
+            except Exception as e2:
+                print(f"Ошибка при отправке сообщения: {e2}")
         await callback.answer()
         
     else:
@@ -586,10 +646,25 @@ async def process_quantity_selection(callback: types.CallbackQuery, state: FSMCo
             await state.update_data(selected_quantity=new_qty)
             
             text = f"Количество: {new_qty}"
-            await callback.message.edit_text(
-                text,
-                reply_markup=keyboards.builders.quantity_kb()
-            )
+            
+            # Просто редактируем текст без фото
+            try:
+                await callback.message.edit_text(
+                    text,
+                    reply_markup=keyboards.builders.quantity_kb()
+                )
+            except TelegramBadRequest as e:
+                # Если не удалось отредактировать, пытаемся удалить и отправить новое
+                try:
+                    await callback.message.delete()
+                except Exception:
+                    # Не удалось удалить (возможно, старое сообщение) - просто отправим новое
+                    pass
+                
+                try:
+                    await callback.message.answer(text, reply_markup=keyboards.builders.quantity_kb())
+                except Exception as e2:
+                    print(f"Ошибка при отправке сообщения: {e2}")
         await callback.answer()
 
 # =============================
@@ -692,9 +767,15 @@ async def go_back(callback: types.CallbackQuery, state: FSMContext):
         await safe_edit_message(
             callback, "🏠 Главное меню.", keyboards.inline.menu_kb
         )
+        # Очищаем image_path при возврате в главное меню
+        await state.update_data(image_path=None)
         return
 
     data = await state.get_data()
+    
+    # Очищаем image_path, если возвращаемся не в showing_product
+    if prev_state != ChoseProduct.showing_product:
+        await state.update_data(image_path=None)
     
     # Специальная обработка для состояния showing_product
     if prev_state == ChoseProduct.showing_product:
