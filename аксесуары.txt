@@ -1,0 +1,5 @@
+Категория, Бренд, Бренд устройства, Модель устройства, Серия, Вариация, Цвет, Карточка (Фото)
+Чехлы для телефонов, Pitaka, iPhone, 17pro, armor, , black,
+Чехлы для телефонов, Pitaka, iPhone, 16pro, armor, , black,
+Чехлы для телефонов, Pitaka, Samsung, s24Ultra, armor, , black,
+Зарядник, Samsung, Samsung, s24Ultra, , , black,
