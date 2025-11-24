@@ -113,11 +113,11 @@ class ProductsView(ModelView):
 
     list_columns = [
         "category.name",
-        "accessory_brand",
-        "device_model",
-        "series",
+        "accessory_brand.name",
+        "device_model.name",
+        "series.name",
         "variation",
-        "color",
+        "color.name",
         "price",
         "is_active"
     ]
@@ -138,10 +138,14 @@ class ProductsView(ModelView):
         "category.name": "Категория",
         "category": "Категория",
         "accessory_brand": "Бренд аксессуара",
+        "accessory_brand.name": "Бренд аксессуара",
         "device_model": "Модель устройства",
+        "device_model.model": "Модель устройства",
         "series": "Серия",
+        "series.name": "Серия",
         "variation": "Вариация",
         "color": "Цвет",
+        "color.name": "Цвет",
         "price": "Цена",
         "description": "Описание",
         "is_active": "Активно"
