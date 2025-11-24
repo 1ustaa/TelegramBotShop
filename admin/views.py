@@ -124,7 +124,7 @@ class ProductsView(ModelView):
     datamodel = SQLAInterface(Products)
 
     list_columns = [
-        "category",
+        "category.name",
         "accessory_brand",
         "device_model",
         "series",
@@ -147,6 +147,7 @@ class ProductsView(ModelView):
     ]
 
     label_columns = {
+        "category.name": "Категория",
         "category": "Категория",
         "accessory_brand": "Бренд аксессуара",
         "device_model": "Модель устройства",
@@ -157,27 +158,28 @@ class ProductsView(ModelView):
         "description": "Описание",
         "is_active": "Активно"
     }
+    
+    # Список колонок доступных для сортировки
+    # Flask-AppBuilder автоматически использует __str__ для связанных моделей
+    column_sortable_list = list_columns
+    
+    # Явное указание полей для сортировки связанных моделей
+    order_columns = [
+        "category.name",
+        "accessory_brand.name",
+        "device_model.name",
+        "series.name",
+        "variation",
+        "color.name",
+        "price",
+        "is_active"
+    ]
 
     exclude_list = ["images"]
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
     
-    # Сортировка по ID (базовая)
-    base_order = ("id", "asc")
-    
-    def pre_list(self, item_list):
-        """Можем добавить дополнительную обработку перед отображением списка"""
-        # Сортируем список Python-ом (не идеально, но работает)
-        try:
-            item_list.sort(key=lambda x: (
-                x.category.name if x.category else '',
-                x.accessory_brand.name if x.accessory_brand else '',
-                x.device_model.name if x.device_model else '',
-                x.series.name if x.series else '',
-                x.variation if x.variation else ''
-            ))
-        except:
-            pass  # Если ошибка, оставляем как есть
-        return item_list
+    # Сортировка по умолчанию
+    base_order = ("price", "asc")
 
 class ProductImagesView(ModelView):
     datamodel = SQLAInterface(ProductImages)
