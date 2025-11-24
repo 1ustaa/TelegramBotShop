@@ -327,6 +327,8 @@ async def colors_kb(
             .where(
                 Products.category_id == category_id,
                 Products.accessory_brand_id == accessory_brand_id,
+                Products.device_model_id == device_model_id,
+                Products.series_id == series_id,
                 Products.is_active == True
             )
         )
