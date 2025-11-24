@@ -29,6 +29,8 @@ from data.model import (
     CartItems
 )
 
+from data.crud import get_or_create_sync, SyncSessionLocal
+
 # =============================
 # VIEWS ДЛЯ ОСНОВНЫХ СУЩНОСТЕЙ
 # =============================
@@ -272,6 +274,102 @@ class AdminsView(ModelView):
 # EXCEL UPLOAD VIEW
 # =============================
 
+def import_from_excel(file_path):
+    """
+    Импорт данных из Excel файла
+    Структура: Категория, Бренд, Бренд устройства, Модель устройства, Серия, Вариация, Цвет
+    """
+    try:
+        # Читаем Excel файл
+        df = pd.read_excel(file_path)
+        
+        # Очищаем пробелы в названиях колонок
+        df.columns = df.columns.str.strip()
+        
+        session = SyncSessionLocal()
+        added_count = 0
+        error_count = 0
+        
+        try:
+            for index, row in df.iterrows():
+                try:
+                    # Извлекаем данные из строки
+                    category_name = str(row.get('Категория', '')).strip() if pd.notna(row.get('Категория')) else None
+                    brand_name = str(row.get('Бренд', '')).strip() if pd.notna(row.get('Бренд')) else None
+                    device_brand_name = str(row.get('Бренд устройства', '')).strip() if pd.notna(row.get('Бренд устройства')) else None
+                    device_model_name = str(row.get('Модель устройства', '')).strip() if pd.notna(row.get('Модель устройства')) else None
+                    series_name = str(row.get('Серия', '')).strip() if pd.notna(row.get('Серия')) else None
+                    variation = str(row.get('Вариация', '')).strip() if pd.notna(row.get('Вариация')) else None
+                    color_name = str(row.get('Цвет', '')).strip() if pd.notna(row.get('Цвет')) else None
+                    
+                    # Пропускаем строки без обязательных полей
+                    if not category_name or not brand_name:
+                        continue
+                    
+                    # Получаем или создаем категорию
+                    category = get_or_create_sync(session, Categories, name=category_name)
+                    
+                    # Получаем или создаем бренд аксессуара
+                    accessory_brand = get_or_create_sync(session, AccessoryBrands, name=brand_name)
+                    
+                    # Получаем или создаем бренд устройства (если указан)
+                    device_brand = None
+                    if device_brand_name:
+                        device_brand = get_or_create_sync(session, DeviceBrands, name=device_brand_name)
+                    
+                    # Получаем или создаем модель устройства (если указана)
+                    device_model = None
+                    if device_model_name and device_brand:
+                        device_model = get_or_create_sync(
+                            session, 
+                            DeviceModels, 
+                            name=device_model_name,
+                            device_brand_id=device_brand.id
+                        )
+                    
+                    # Получаем или создаем серию (если указана)
+                    series = None
+                    if series_name:
+                        series = get_or_create_sync(session, Series, name=series_name)
+                    
+                    # Получаем или создаем цвет (если указан)
+                    color = None
+                    if color_name:
+                        color = get_or_create_sync(session, Colors, name=color_name)
+                    
+                    # Создаем продукт
+                    product = Products(
+                        category_id=category.id,
+                        accessory_brand_id=accessory_brand.id,
+                        device_model_id=device_model.id if device_model else None,
+                        series_id=series.id if series else None,
+                        variation=variation if variation else None,
+                        color_id=color.id if color else None,
+                        is_active=True
+                    )
+                    
+                    session.add(product)
+                    added_count += 1
+                    
+                except Exception as e:
+                    error_count += 1
+                    print(f"Ошибка обработки строки {index + 2}: {e}")
+                    continue
+            
+            # Сохраняем все изменения
+            session.commit()
+            return added_count, error_count
+            
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+            
+    except Exception as e:
+        print(f"Ошибка импорта из Excel: {e}")
+        raise e
+
 class ExcelUploadView(BaseView):
     route_base = "/excel_upload"
     default_view = "upload"
@@ -292,11 +390,29 @@ class ExcelUploadView(BaseView):
                 if allowed_file(file):
                     filename = secure_filename(file.filename)
                     file_path = os.path.join(self.upload_folder, filename)
-                    file.save(file_path)
-                    flash("Файл успешно загружен", "success")
-                    # Здесь можно добавить функцию импорта
-                    # import_from_excel(file_path)
-                    os.remove(file_path)
+                    
+                    try:
+                        # Сохраняем файл
+                        file.save(file_path)
+                        
+                        # Импортируем данные
+                        added_count, error_count = import_from_excel(file_path)
+                        
+                        # Выводим результат
+                        if error_count == 0:
+                            flash(f"Файл успешно обработан! Добавлено записей: {added_count}", "success")
+                        else:
+                            flash(f"Файл обработан с ошибками. Добавлено: {added_count}, ошибок: {error_count}", "warning")
+                        
+                        # Удаляем временный файл
+                        os.remove(file_path)
+                        
+                    except Exception as e:
+                        flash(f"Ошибка обработки файла: {str(e)}", "danger")
+                        # Удаляем файл в случае ошибки
+                        if os.path.exists(file_path):
+                            os.remove(file_path)
+                    
                     return redirect(request.url)
                 else:
                     flash("Недопустимый формат файла. Разрешены: xlsx, xls", "danger")
