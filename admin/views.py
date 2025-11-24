@@ -46,7 +46,7 @@ class CategoriesView(ModelView):
 
     label_columns = {"name": "Категория"}
     
-    base_order = [("name", "asc")]
+    base_order = ("name", "asc")
 
 class AccessoryBrandsView(ModelView):
     datamodel = SQLAInterface(AccessoryBrands)
@@ -59,7 +59,7 @@ class AccessoryBrandsView(ModelView):
 
     label_columns = {"name": "Бренд аксессуара"}
     
-    base_order = [("name", "asc")]
+    base_order = ("name", "asc")
 
 class DeviceBrandsView(ModelView):
     datamodel = SQLAInterface(DeviceBrands)
@@ -72,7 +72,7 @@ class DeviceBrandsView(ModelView):
 
     label_columns = {"name": "Бренд устройства"}
     
-    base_order = [("name", "asc")]
+    base_order = ("name", "asc")
 
 class DeviceModelsView(ModelView):
     datamodel = SQLAInterface(DeviceModels)
@@ -88,7 +88,7 @@ class DeviceModelsView(ModelView):
         "device_brand": "Бренд устройства"
     }
     
-    base_order = [("name", "asc")]
+    base_order = ("name", "asc")
 
 class SeriesView(ModelView):
     datamodel = SQLAInterface(Series)
@@ -101,7 +101,7 @@ class SeriesView(ModelView):
 
     label_columns = {"name": "Серия"}
     
-    base_order = [("name", "asc")]
+    base_order = ("name", "asc")
 
 class ColorsView(ModelView):
     datamodel = SQLAInterface(Colors)
@@ -114,7 +114,7 @@ class ColorsView(ModelView):
     exclude_list = ["products", "images"]
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
     
-    base_order = [("name", "asc")]
+    base_order = ("name", "asc")
 
 # =============================
 # VIEWS ДЛЯ ПРОДУКТОВ
@@ -161,8 +161,23 @@ class ProductsView(ModelView):
     exclude_list = ["images"]
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
     
-    # Сортировка: сначала по категории, потом по бренду, потом по наименованию (device_model, series, variation)
-    base_order = [("category.name", "asc"), ("accessory_brand.name", "asc"), ("device_model.name", "asc"), ("series.name", "asc"), ("variation", "asc")]
+    # Сортировка по ID (базовая)
+    base_order = ("id", "asc")
+    
+    def pre_list(self, item_list):
+        """Можем добавить дополнительную обработку перед отображением списка"""
+        # Сортируем список Python-ом (не идеально, но работает)
+        try:
+            item_list.sort(key=lambda x: (
+                x.category.name if x.category else '',
+                x.accessory_brand.name if x.accessory_brand else '',
+                x.device_model.name if x.device_model else '',
+                x.series.name if x.series else '',
+                x.variation if x.variation else ''
+            ))
+        except:
+            pass  # Если ошибка, оставляем как есть
+        return item_list
 
 class ProductImagesView(ModelView):
     datamodel = SQLAInterface(ProductImages)
@@ -183,7 +198,7 @@ class ProductImagesView(ModelView):
     exclude_list = ["path"]
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
     
-    base_order = [("product.category.name", "asc"), ("product.accessory_brand.name", "asc")]
+    base_order = ("product", "asc")
 
     def _save_image(self, file_storage):
         filename = secure_filename(file_storage.filename)
@@ -229,7 +244,7 @@ class CustomersView(ModelView):
     exclude_list = []
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
     
-    base_order = [("username", "asc")]
+    base_order = ("username", "asc")
 
 class OrdersView(ModelView):
     datamodel = SQLAInterface(Orders)
@@ -248,7 +263,7 @@ class OrdersView(ModelView):
         "items": "Товары"
     }
     
-    base_order = [("created_at", "desc")]
+    base_order = ("created_at", "desc")
 
 class OrderItemsView(ModelView):
     datamodel = SQLAInterface(OrderItems)
@@ -261,7 +276,7 @@ class OrderItemsView(ModelView):
         "quantity": "Количество"
     }
     
-    base_order = [("order.created_at", "desc")]
+    base_order = ("order", "desc")
 
 class OrderStatusesView(ModelView):
     datamodel = SQLAInterface(OrderStatuses)
@@ -271,7 +286,7 @@ class OrderStatusesView(ModelView):
 
     label_columns = {"name": "Статус заказа"}
     
-    base_order = [("name", "asc")]
+    base_order = ("name", "asc")
 
 class CartItemsView(ModelView):
     datamodel = SQLAInterface(CartItems)
@@ -284,7 +299,7 @@ class CartItemsView(ModelView):
         "quantity": "Количество"
     }
     
-    base_order = [("customer.username", "asc")]
+    base_order = ("customer", "asc")
 
 class AdminsView(ModelView):
     datamodel = SQLAInterface(Admins)
@@ -297,7 +312,7 @@ class AdminsView(ModelView):
         "username": "Имя пользователя"
     }
     
-    base_order = [("username", "asc")]
+    base_order = ("username", "asc")
 
 # =============================
 # EXCEL UPLOAD VIEW
