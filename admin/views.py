@@ -45,8 +45,6 @@ class CategoriesView(ModelView):
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
 
     label_columns = {"name": "Категория"}
-    
-    base_order = ("name", "asc")
 
 class AccessoryBrandsView(ModelView):
     datamodel = SQLAInterface(AccessoryBrands)
@@ -58,8 +56,6 @@ class AccessoryBrandsView(ModelView):
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
 
     label_columns = {"name": "Бренд аксессуара"}
-    
-    base_order = ("name", "asc")
 
 class DeviceBrandsView(ModelView):
     datamodel = SQLAInterface(DeviceBrands)
@@ -71,8 +67,6 @@ class DeviceBrandsView(ModelView):
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
 
     label_columns = {"name": "Бренд устройства"}
-    
-    base_order = ("name", "asc")
 
 class DeviceModelsView(ModelView):
     datamodel = SQLAInterface(DeviceModels)
@@ -87,8 +81,6 @@ class DeviceModelsView(ModelView):
         "name": "Модель устройства",
         "device_brand": "Бренд устройства"
     }
-    
-    base_order = ("name", "asc")
 
 class SeriesView(ModelView):
     datamodel = SQLAInterface(Series)
@@ -100,8 +92,6 @@ class SeriesView(ModelView):
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
 
     label_columns = {"name": "Серия"}
-    
-    base_order = ("name", "asc")
 
 class ColorsView(ModelView):
     datamodel = SQLAInterface(Colors)
@@ -113,8 +103,6 @@ class ColorsView(ModelView):
 
     exclude_list = ["products", "images"]
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
-    
-    base_order = ("name", "asc")
 
 # =============================
 # VIEWS ДЛЯ ПРОДУКТОВ
@@ -178,8 +166,6 @@ class ProductsView(ModelView):
     exclude_list = ["images"]
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
     
-    # Сортировка по умолчанию
-    base_order = ("price", "asc")
 
 class ProductImagesView(ModelView):
     datamodel = SQLAInterface(ProductImages)
@@ -199,8 +185,6 @@ class ProductImagesView(ModelView):
 
     exclude_list = ["path"]
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
-    
-    base_order = ("product", "asc")
 
     def _save_image(self, file_storage):
         filename = secure_filename(file_storage.filename)
@@ -245,8 +229,6 @@ class CustomersView(ModelView):
 
     exclude_list = []
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
-    
-    base_order = ("username", "asc")
 
 class OrdersView(ModelView):
     datamodel = SQLAInterface(Orders)
@@ -264,8 +246,6 @@ class OrdersView(ModelView):
         "total_price": "Сумма",
         "items": "Товары"
     }
-    
-    base_order = ("created_at", "desc")
 
 class OrderItemsView(ModelView):
     datamodel = SQLAInterface(OrderItems)
@@ -277,8 +257,6 @@ class OrderItemsView(ModelView):
         "product": "Товар",
         "quantity": "Количество"
     }
-    
-    base_order = ("order", "desc")
 
 class OrderStatusesView(ModelView):
     datamodel = SQLAInterface(OrderStatuses)
@@ -288,8 +266,6 @@ class OrderStatusesView(ModelView):
 
     label_columns = {"name": "Статус заказа"}
     
-    base_order = ("name", "asc")
-
 class CartItemsView(ModelView):
     datamodel = SQLAInterface(CartItems)
 
@@ -300,8 +276,6 @@ class CartItemsView(ModelView):
         "product": "Товар",
         "quantity": "Количество"
     }
-    
-    base_order = ("customer", "asc")
 
 class AdminsView(ModelView):
     datamodel = SQLAInterface(Admins)
@@ -313,8 +287,6 @@ class AdminsView(ModelView):
         "id": "Telegram ID",
         "username": "Имя пользователя"
     }
-    
-    base_order = ("username", "asc")
 
 # =============================
 # EXCEL UPLOAD VIEW
