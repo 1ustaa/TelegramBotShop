@@ -116,6 +116,18 @@ class Colors(Base):
 # Главная таблица Продукт (Аксессуар)
 class Products(Base):
     __tablename__ = "products"
+    __table_args__ = (
+        UniqueConstraint(
+            'category_id', 
+            'accessory_brand_id', 
+            'device_model_id', 
+            'series_id', 
+            'color_id', 
+            'variation',
+            name='uq_product_combination'
+        ),
+    )
+    
     id = Column(Integer, primary_key=True, autoincrement=True)
     
     # Название вариации (если есть специфичные различия внутри одной модели)

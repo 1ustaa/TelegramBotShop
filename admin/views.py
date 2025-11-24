@@ -277,7 +277,7 @@ class AdminsView(ModelView):
 def import_from_excel(file_path):
     """
     Импорт данных из Excel файла
-    Структура: Категория, Бренд, Бренд устройства, Модель устройства, Серия, Вариация, Цвет
+    Структура: Категория, Бренд, Бренд устройства, Модель устройства, Серия, Вариация, Цвет, Цена
     """
     try:
         # Читаем Excel файл
@@ -288,6 +288,7 @@ def import_from_excel(file_path):
         
         session = SyncSessionLocal()
         added_count = 0
+        updated_count = 0
         error_count = 0
         
         try:
@@ -301,6 +302,14 @@ def import_from_excel(file_path):
                     series_name = str(row.get('Серия', '')).strip() if pd.notna(row.get('Серия')) else None
                     variation = str(row.get('Вариация', '')).strip() if pd.notna(row.get('Вариация')) else None
                     color_name = str(row.get('Цвет', '')).strip() if pd.notna(row.get('Цвет')) else None
+                    
+                    # Извлекаем цену
+                    price = None
+                    if pd.notna(row.get('Цена')):
+                        try:
+                            price = int(row.get('Цена'))
+                        except (ValueError, TypeError):
+                            pass
                     
                     # Пропускаем строки без обязательных полей
                     if not category_name or not brand_name:
@@ -337,19 +346,36 @@ def import_from_excel(file_path):
                     if color_name:
                         color = get_or_create_sync(session, Colors, name=color_name)
                     
-                    # Создаем продукт
-                    product = Products(
+                    # Проверяем, существует ли уже такой продукт
+                    existing_product = session.query(Products).filter_by(
                         category_id=category.id,
                         accessory_brand_id=accessory_brand.id,
                         device_model_id=device_model.id if device_model else None,
                         series_id=series.id if series else None,
                         variation=variation if variation else None,
-                        color_id=color.id if color else None,
-                        is_active=True
-                    )
+                        color_id=color.id if color else None
+                    ).first()
                     
-                    session.add(product)
-                    added_count += 1
+                    if existing_product:
+                        # Обновляем существующий продукт
+                        if price is not None:
+                            existing_product.price = price
+                        existing_product.is_active = True
+                        updated_count += 1
+                    else:
+                        # Создаем новый продукт
+                        product = Products(
+                            category_id=category.id,
+                            accessory_brand_id=accessory_brand.id,
+                            device_model_id=device_model.id if device_model else None,
+                            series_id=series.id if series else None,
+                            variation=variation if variation else None,
+                            color_id=color.id if color else None,
+                            price=price,
+                            is_active=True
+                        )
+                        session.add(product)
+                        added_count += 1
                     
                 except Exception as e:
                     error_count += 1
@@ -358,7 +384,7 @@ def import_from_excel(file_path):
             
             # Сохраняем все изменения
             session.commit()
-            return added_count, error_count
+            return added_count, updated_count, error_count
             
         except Exception as e:
             session.rollback()
@@ -396,13 +422,13 @@ class ExcelUploadView(BaseView):
                         file.save(file_path)
                         
                         # Импортируем данные
-                        added_count, error_count = import_from_excel(file_path)
+                        added_count, updated_count, error_count = import_from_excel(file_path)
                         
                         # Выводим результат
                         if error_count == 0:
-                            flash(f"Файл успешно обработан! Добавлено записей: {added_count}", "success")
+                            flash(f"Файл успешно обработан! Добавлено: {added_count}, обновлено: {updated_count}", "success")
                         else:
-                            flash(f"Файл обработан с ошибками. Добавлено: {added_count}, ошибок: {error_count}", "warning")
+                            flash(f"Файл обработан с ошибками. Добавлено: {added_count}, обновлено: {updated_count}, ошибок: {error_count}", "warning")
                         
                         # Удаляем временный файл
                         os.remove(file_path)
