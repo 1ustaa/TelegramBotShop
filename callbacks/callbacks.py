@@ -100,6 +100,8 @@ async def transition_to_next_state(callback: types.CallbackQuery, state: FSMCont
                     stmt = stmt.where(Products.device_model_id == data["chosen_device_model"])
                 if data.get("chosen_series"):
                     stmt = stmt.where(Products.series_id == data["chosen_series"])
+                if data.get("chosen_variation"):
+                    stmt = stmt.where(Products.variation_id == data["chosen_variation"])
                 if data.get("chosen_color"):
                     stmt = stmt.where(Products.color_id == data["chosen_color"])
                 
@@ -386,7 +388,7 @@ async def process_series_pagination(callback: types.CallbackQuery, state: FSMCon
     F.data.startswith("series_"),
     ChoseProduct.showing_series
 )
-async def process_color_selection(callback: types.CallbackQuery, state: FSMContext):
+async def process_variation_selection(callback: types.CallbackQuery, state: FSMContext):
     data_split = callback.data.split("_")
     try:
         series_id = int(data_split[1])
@@ -398,12 +400,12 @@ async def process_color_selection(callback: types.CallbackQuery, state: FSMConte
     await transition_to_next_state(callback, state)
     await callback.answer()
 
-# Пагинация цветов
+# Пагинация вариаций
 @router.callback_query(
-    F.data.startswith("pg_color"),
-    ChoseProduct.showing_colors
+    F.data.startswith("pg_variation"),
+    ChoseProduct.showing_variations
 )
-async def process_color_pagination(callback: types.CallbackQuery, state: FSMContext):
+async def process_variation_pagination(callback: types.CallbackQuery, state: FSMContext):
     data_split = callback.data.split("_")
     try:
         category_id = int(data_split[3])
@@ -416,9 +418,54 @@ async def process_color_pagination(callback: types.CallbackQuery, state: FSMCont
         return
 
     await callback.message.edit_text(
+        "Выберите вариацию",
+        reply_markup=await keyboards.builders.variations_kb(
+            category_id, accessory_brand_id, device_model_id, series_id, page
+        )
+    )
+    await callback.answer()
+
+# Выбор вариации
+@router.callback_query(
+    F.data.startswith("variation_"),
+    ChoseProduct.showing_variations
+)
+async def process_color_selection(callback: types.CallbackQuery, state: FSMContext):
+    data_split = callback.data.split("_")
+    try:
+        variation_id = int(data_split[1])
+    except (IndexError, ValueError):
+        await callback.answer("Некорректные данные.")
+        return
+
+    await state.update_data(chosen_variation=variation_id)
+    await transition_to_next_state(callback, state)
+    await callback.answer()
+
+# Пагинация цветов
+@router.callback_query(
+    F.data.startswith("pg_color"),
+    ChoseProduct.showing_colors
+)
+async def process_color_pagination(callback: types.CallbackQuery, state: FSMContext):
+    data_split = callback.data.split("_")
+    data = await state.get_data()
+    
+    try:
+        page = int(data_split[-1])
+    except (IndexError, ValueError):
+        await callback.answer("Некорректные данные.")
+        return
+
+    await callback.message.edit_text(
         "Выберите цвет",
         reply_markup=await keyboards.builders.colors_kb(
-            category_id, accessory_brand_id, device_model_id, series_id, page
+            data["chosen_category"],
+            data["chosen_accessory_brand"],
+            data.get("chosen_device_model"),
+            data.get("chosen_series"),
+            data.get("chosen_variation"),
+            page
         )
     )
     await callback.answer()
@@ -462,6 +509,7 @@ async def process_product_pagination(callback: types.CallbackQuery, state: FSMCo
             data["chosen_accessory_brand"],
             data.get("chosen_device_model"),
             data.get("chosen_series"),
+            data.get("chosen_variation"),
             data.get("chosen_color"),
             page
         )

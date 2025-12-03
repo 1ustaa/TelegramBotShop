@@ -18,6 +18,7 @@ from data.model import (
     DeviceBrands,
     DeviceModels,
     Series,
+    Variations,
     Colors,
     Products,
     ProductImages,
@@ -93,6 +94,17 @@ class SeriesView(ModelView):
 
     label_columns = {"name": "Серия"}
 
+class VariationsView(ModelView):
+    datamodel = SQLAInterface(Variations)
+
+    columns = ["name"]
+    list_columns = add_columns = edit_columns = show_columns = columns
+
+    exclude_list = ["products"]
+    add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
+
+    label_columns = {"name": "Вариация"}
+
 class ColorsView(ModelView):
     datamodel = SQLAInterface(Colors)
 
@@ -116,7 +128,7 @@ class ProductsView(ModelView):
         "accessory_brand.name",
         "device_model.name",
         "series.name",
-        "variation",
+        "variation.name",
         "color.name",
         "price",
         "is_active"
@@ -144,6 +156,7 @@ class ProductsView(ModelView):
         "series": "Серия",
         "series.name": "Серия",
         "variation": "Вариация",
+        "variation.name": "Вариация",
         "color": "Цвет",
         "color.name": "Цвет",
         "price": "Цена",
@@ -161,7 +174,7 @@ class ProductsView(ModelView):
         "accessory_brand.name",
         "device_model.name",
         "series.name",
-        "variation",
+        "variation.name",
         "color.name",
         "price",
         "is_active"
@@ -363,6 +376,11 @@ def import_from_excel(file_path):
                     if series_name:
                         series = get_or_create_sync(session, Series, name=series_name)
                     
+                    # Получаем или создаем вариацию (если указана)
+                    variation_obj = None
+                    if variation:
+                        variation_obj = get_or_create_sync(session, Variations, name=variation)
+                    
                     # Получаем или создаем цвет (если указан)
                     color = None
                     if color_name:
@@ -374,7 +392,7 @@ def import_from_excel(file_path):
                         accessory_brand_id=accessory_brand.id,
                         device_model_id=device_model.id if device_model else None,
                         series_id=series.id if series else None,
-                        variation=variation if variation else None,
+                        variation_id=variation_obj.id if variation_obj else None,
                         color_id=color.id if color else None
                     ).first()
                     
@@ -391,7 +409,7 @@ def import_from_excel(file_path):
                             accessory_brand_id=accessory_brand.id,
                             device_model_id=device_model.id if device_model else None,
                             series_id=series.id if series else None,
-                            variation=variation if variation else None,
+                            variation_id=variation_obj.id if variation_obj else None,
                             color_id=color.id if color else None,
                             price=price,
                             is_active=True

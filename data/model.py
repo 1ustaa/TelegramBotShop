@@ -99,6 +99,19 @@ class Series(Base):
     def __repr__(self):
         return self.name
 
+# Таблица Вариация
+class Variations(Base):
+    __tablename__ = "variations"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=False, unique=True)
+    products = relationship("Products", back_populates="variation")
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.name
+
 # Таблица Цвет
 class Colors(Base):
     __tablename__ = "colors"
@@ -122,16 +135,13 @@ class Products(Base):
             'accessory_brand_id', 
             'device_model_id', 
             'series_id', 
+            'variation_id',
             'color_id', 
-            'variation',
             name='uq_product_combination'
         ),
     )
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    
-    # Название вариации (если есть специфичные различия внутри одной модели)
-    variation = Column(String(200), nullable=True)
     
     # Цена и описание
     price = Column(Integer, nullable=True)
@@ -152,6 +162,9 @@ class Products(Base):
     series_id = Column(Integer, ForeignKey("series.id"), nullable=True)
     series = relationship("Series", back_populates="products")
     
+    variation_id = Column(Integer, ForeignKey("variations.id"), nullable=True)
+    variation = relationship("Variations", back_populates="products")
+    
     color_id = Column(Integer, ForeignKey("colors.id"), nullable=True)
     color = relationship("Colors", back_populates="products")
     
@@ -169,7 +182,7 @@ class Products(Base):
         if self.series:
             parts.append(str(self.series))
         if self.variation:
-            parts.append(self.variation)
+            parts.append(str(self.variation))
         if self.color:
             parts.append(str(self.color))
         return " ".join(parts)

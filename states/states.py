@@ -9,6 +9,7 @@ from data.model import (
     DeviceModels,
     DeviceBrands,
     Series,
+    Variations,
     Colors,
     Products
 )
@@ -20,6 +21,7 @@ class ChoseProduct(StatesGroup):
     showing_device_brands = State()
     showing_device_models = State()
     showing_series = State()
+    showing_variations = State()
     showing_colors = State()
     showing_products = State()
     showing_product = State()
@@ -32,6 +34,7 @@ STATE_SEQUENCE = [
     ChoseProduct.showing_device_brands,
     ChoseProduct.showing_device_models,
     ChoseProduct.showing_series,
+    ChoseProduct.showing_variations,
     ChoseProduct.showing_colors,
     ChoseProduct.showing_products,
 ]
@@ -134,12 +137,38 @@ async def should_show_state(state, data: dict) -> bool:
             result = await session.execute(stmt)
             return result.scalar() > 0
         
+        elif state == ChoseProduct.showing_variations:
+            # Проверяем наличие вариаций
+            category_id = data.get("chosen_category")
+            accessory_brand_id = data.get("chosen_accessory_brand")
+            device_model_id = data.get("chosen_device_model")
+            series_id = data.get("chosen_series")
+            if not category_id or not accessory_brand_id:
+                return False
+            
+            stmt = (
+                select(func.count(func.distinct(Products.variation_id)))
+                .where(
+                    Products.category_id == category_id,
+                    Products.accessory_brand_id == accessory_brand_id,
+                    Products.is_active == True,
+                    Products.variation_id.isnot(None)
+                )
+            )
+            if device_model_id:
+                stmt = stmt.where(Products.device_model_id == device_model_id)
+            if series_id:
+                stmt = stmt.where(Products.series_id == series_id)
+            result = await session.execute(stmt)
+            return result.scalar() > 0
+        
         elif state == ChoseProduct.showing_colors:
             # Проверяем наличие цветов
             category_id = data.get("chosen_category")
             accessory_brand_id = data.get("chosen_accessory_brand")
             device_model_id = data.get("chosen_device_model")
             series_id = data.get("chosen_series")
+            variation_id = data.get("chosen_variation")
             if not category_id or not accessory_brand_id:
                 return False
             
@@ -156,6 +185,8 @@ async def should_show_state(state, data: dict) -> bool:
                 stmt = stmt.where(Products.device_model_id == device_model_id)
             if series_id:
                 stmt = stmt.where(Products.series_id == series_id)
+            if variation_id:
+                stmt = stmt.where(Products.variation_id == variation_id)
             result = await session.execute(stmt)
             return result.scalar() > 0
         
@@ -228,12 +259,22 @@ state_handlers = {
         ),
         "text": "Выберите серию"
     },
+    ChoseProduct.showing_variations: {
+        "markup": lambda data: builders.variations_kb(
+            data.get("chosen_category"),
+            data.get("chosen_accessory_brand"),
+            data.get("chosen_device_model"),
+            data.get("chosen_series")
+        ),
+        "text": "Выберите вариацию"
+    },
     ChoseProduct.showing_colors: {
         "markup": lambda data: builders.colors_kb(
             data.get("chosen_category"),
             data.get("chosen_accessory_brand"),
             data.get("chosen_device_model"),
-            data.get("chosen_series")
+            data.get("chosen_series"),
+            data.get("chosen_variation")
         ),
         "text": "Выберите цвет"
     },
@@ -243,6 +284,7 @@ state_handlers = {
             data.get("chosen_accessory_brand"),
             data.get("chosen_device_model"),
             data.get("chosen_series"),
+            data.get("chosen_variation"),
             data.get("chosen_color")
         ),
         "text": "Выберите товар"

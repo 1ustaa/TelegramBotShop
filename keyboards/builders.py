@@ -8,6 +8,7 @@ from data.model import (
     DeviceBrands,
     DeviceModels,
     Series,
+    Variations,
     Colors,
     Products
 )
@@ -293,11 +294,72 @@ async def series_kb(
     builder.row(main_menu_button())
     return builder.as_markup()
 
+async def variations_kb(
+    category_id: int,
+    accessory_brand_id: int,
+    device_model_id: int = None,
+    series_id: int = None,
+    page=0,
+    page_size: int = MAX_PAGE_SIZE
+):
+    """Клавиатура выбора вариации"""
+    async with AsyncSessionLocal() as session:
+        stmt = (
+            select(Variations)
+            .join(Products, Products.variation_id == Variations.id)
+            .where(
+                Products.category_id == category_id,
+                Products.accessory_brand_id == accessory_brand_id,
+                Products.is_active == True
+            )
+        )
+        
+        if device_model_id:
+            stmt = stmt.where(Products.device_model_id == device_model_id)
+        if series_id:
+            stmt = stmt.where(Products.series_id == series_id)
+        
+        stmt = stmt.distinct().order_by(Variations.name)
+        
+        variations_count = await session.execute(
+            select(func.count(func.distinct(Variations.id)))
+            .select_from(Variations)
+            .join(Products, Products.variation_id == Variations.id)
+            .where(
+                Products.category_id == category_id,
+                Products.accessory_brand_id == accessory_brand_id,
+                Products.is_active == True
+            )
+        )
+        variations_count = variations_count.scalar_one()
+        page, total_pages = count_pages(variations_count, page_size, page)
+        
+        result = await session.execute(stmt.offset(page * page_size).limit(page_size))
+        variations = result.scalars().all()
+
+    builder = InlineKeyboardBuilder()
+    for variation in variations:
+        builder.button(text=variation.name, callback_data=f"variation_{variation.id}")
+    builder.adjust(2)
+
+    params = [category_id, accessory_brand_id]
+    if device_model_id:
+        params.append(device_model_id)
+    if series_id:
+        params.append(series_id)
+    pg_buttons = make_pagination_buttons("pg_variation", params, total_pages, page)
+    builder.row(*pg_buttons)
+
+    builder.row(back_button())
+    builder.row(main_menu_button())
+    return builder.as_markup()
+
 async def colors_kb(
     category_id: int,
     accessory_brand_id: int,
     device_model_id: int = None,
     series_id: int = None,
+    variation_id: int = None,
     page=0,
     page_size: int = MAX_PAGE_SIZE
 ):
@@ -317,21 +379,29 @@ async def colors_kb(
             stmt = stmt.where(Products.device_model_id == device_model_id)
         if series_id:
             stmt = stmt.where(Products.series_id == series_id)
+        if variation_id:
+            stmt = stmt.where(Products.variation_id == variation_id)
         
         stmt = stmt.distinct().order_by(Colors.name)
         
-        colors_count = await session.execute(
+        colors_count_stmt = (
             select(func.count(func.distinct(Colors.id)))
             .select_from(Colors)
             .join(Products, Products.color_id == Colors.id)
             .where(
                 Products.category_id == category_id,
                 Products.accessory_brand_id == accessory_brand_id,
-                Products.device_model_id == device_model_id,
-                Products.series_id == series_id,
                 Products.is_active == True
             )
         )
+        if device_model_id:
+            colors_count_stmt = colors_count_stmt.where(Products.device_model_id == device_model_id)
+        if series_id:
+            colors_count_stmt = colors_count_stmt.where(Products.series_id == series_id)
+        if variation_id:
+            colors_count_stmt = colors_count_stmt.where(Products.variation_id == variation_id)
+        
+        colors_count = await session.execute(colors_count_stmt)
         colors_count = colors_count.scalar_one()
         page, total_pages = count_pages(colors_count, page_size, page)
         
@@ -348,6 +418,8 @@ async def colors_kb(
         params.append(device_model_id)
     if series_id:
         params.append(series_id)
+    if variation_id:
+        params.append(variation_id)
     pg_buttons = make_pagination_buttons("pg_color", params, total_pages, page)
     builder.row(*pg_buttons)
 
@@ -360,6 +432,7 @@ async def products_kb(
     accessory_brand_id: int,
     device_model_id: int = None,
     series_id: int = None,
+    variation_id: int = None,
     color_id: int = None,
     page=0,
     page_size: int = MAX_PAGE_SIZE
@@ -379,10 +452,12 @@ async def products_kb(
             stmt = stmt.where(Products.device_model_id == device_model_id)
         if series_id:
             stmt = stmt.where(Products.series_id == series_id)
+        if variation_id:
+            stmt = stmt.where(Products.variation_id == variation_id)
         if color_id:
             stmt = stmt.where(Products.color_id == color_id)
         
-        products_count = await session.execute(
+        products_count_stmt = (
             select(func.count(Products.id))
             .where(
                 Products.category_id == category_id,
@@ -390,6 +465,16 @@ async def products_kb(
                 Products.is_active == True
             )
         )
+        if device_model_id:
+            products_count_stmt = products_count_stmt.where(Products.device_model_id == device_model_id)
+        if series_id:
+            products_count_stmt = products_count_stmt.where(Products.series_id == series_id)
+        if variation_id:
+            products_count_stmt = products_count_stmt.where(Products.variation_id == variation_id)
+        if color_id:
+            products_count_stmt = products_count_stmt.where(Products.color_id == color_id)
+        
+        products_count = await session.execute(products_count_stmt)
         products_count = products_count.scalar_one()
         page, total_pages = count_pages(products_count, page_size, page)
         
@@ -412,6 +497,8 @@ async def products_kb(
         params.append(device_model_id)
     if series_id:
         params.append(series_id)
+    if variation_id:
+        params.append(variation_id)
     if color_id:
         params.append(color_id)
     pg_buttons = make_pagination_buttons("pg_product", params, total_pages, page)

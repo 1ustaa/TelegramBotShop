@@ -107,6 +107,7 @@ async def get_product_full_info(product_id: int):
                 selectinload(Products.accessory_brand),
                 selectinload(Products.device_model).selectinload(DeviceModels.device_brand),
                 selectinload(Products.series),
+                selectinload(Products.variation),
                 selectinload(Products.color)
             )
             .filter(Products.id == product_id)
@@ -122,7 +123,7 @@ async def get_product_full_info(product_id: int):
             "accessory_brand": product.accessory_brand.name if product.accessory_brand else None,
             "device_model": str(product.device_model) if product.device_model else None,
             "series": product.series.name if product.series else None,
-            "variation": product.variation,
+            "variation": product.variation.name if product.variation else None,
             "color": product.color.name if product.color else None,
             "color_id": product.color_id,
             "price": product.price,
@@ -131,6 +132,7 @@ async def get_product_full_info(product_id: int):
 
 async def get_cart_items(user_id):
     """Получить товары из корзины пользователя"""
+    from data.model import Variations
     stmt = (
         select(
             Products.id.label("product_id"),
@@ -138,8 +140,8 @@ async def get_cart_items(user_id):
             AccessoryBrands.name.label("brand"),
             DeviceModels.name.label("device_model"),
             Series.name.label("series"),
+            Variations.name.label("variation"),
             Colors.name.label("color"),
-            Products.variation.label("variation"),
             Products.price,
             (Products.price * CartItems.quantity).label("sum"),
             CartItems.quantity
@@ -150,6 +152,7 @@ async def get_cart_items(user_id):
         .outerjoin(AccessoryBrands, Products.accessory_brand_id == AccessoryBrands.id)
         .outerjoin(DeviceModels, Products.device_model_id == DeviceModels.id)
         .outerjoin(Series, Products.series_id == Series.id)
+        .outerjoin(Variations, Products.variation_id == Variations.id)
         .outerjoin(Colors, Products.color_id == Colors.id)
         .where(CartItems.user_id == user_id)
         .order_by(Categories.name, AccessoryBrands.name)
@@ -280,14 +283,15 @@ async def get_admins():
 
 async def get_order_details(order_id):
     """Получить детали заказа"""
+    from data.model import Variations
     stmt = (
         select(
             Categories.name.label("category"),
             AccessoryBrands.name.label("brand"),
             DeviceModels.name.label("device_model"),
             Series.name.label("series"),
+            Variations.name.label("variation"),
             Colors.name.label("color"),
-            Products.variation.label("variation"),
             Products.price,
             (Products.price * OrderItems.quantity).label("sum"),
             OrderItems.quantity
@@ -298,6 +302,7 @@ async def get_order_details(order_id):
         .outerjoin(AccessoryBrands, Products.accessory_brand_id == AccessoryBrands.id)
         .outerjoin(DeviceModels, Products.device_model_id == DeviceModels.id)
         .outerjoin(Series, Products.series_id == Series.id)
+        .outerjoin(Variations, Products.variation_id == Variations.id)
         .outerjoin(Colors, Products.color_id == Colors.id)
         .where(OrderItems.order_id == order_id)
         .order_by(Categories.name, AccessoryBrands.name)

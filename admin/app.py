@@ -7,6 +7,7 @@ from admin.views import (
     DeviceBrandsView,
     DeviceModelsView,
     SeriesView,
+    VariationsView,
     ColorsView,
     ProductsView,
     ProductImagesView,
@@ -33,6 +34,7 @@ appbuilder.add_view(AccessoryBrandsView, "Бренды аксессуаров", 
 appbuilder.add_view(DeviceBrandsView, "Бренды устройств", category="Справочники")
 appbuilder.add_view(DeviceModelsView, "Модели устройств", category="Справочники")
 appbuilder.add_view(SeriesView, "Серии", category="Справочники")
+appbuilder.add_view(VariationsView, "Вариации", category="Справочники")
 appbuilder.add_view(ColorsView, "Цвета", category="Справочники")
 
 # Регистрация views для продуктов
