@@ -33,6 +33,7 @@ class Categories(Base):
     __tablename__ = "categories"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False, unique=True)
+    sort_order = Column(Integer, nullable=True, default=0)
     products = relationship("Products", back_populates="category")
 
     def __str__(self):
@@ -46,6 +47,7 @@ class AccessoryBrands(Base):
     __tablename__ = "accessory_brands"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False, unique=True)
+    sort_order = Column(Integer, nullable=True, default=0)
     products = relationship("Products", back_populates="accessory_brand")
 
     def __str__(self):
@@ -59,6 +61,7 @@ class DeviceBrands(Base):
     __tablename__ = "device_brands"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False, unique=True)
+    sort_order = Column(Integer, nullable=True, default=0)
     device_models = relationship("DeviceModels", back_populates="device_brand")
 
     def __str__(self):
@@ -72,6 +75,7 @@ class DeviceModels(Base):
     __tablename__ = "device_models"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)
+    sort_order = Column(Integer, nullable=True, default=0)
     
     device_brand_id = Column(Integer, ForeignKey("device_brands.id"), nullable=True)
     device_brand = relationship("DeviceBrands", back_populates="device_models")

@@ -39,46 +39,47 @@ from data.crud import get_or_create_sync, SyncSessionLocal
 class CategoriesView(ModelView):
     datamodel = SQLAInterface(Categories)
 
-    columns = ["name"]
+    columns = ["sort_order", "name"]
     list_columns = add_columns = edit_columns = show_columns = columns
 
     exclude_list = ["products"]
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
 
-    label_columns = {"name": "Категория"}
+    label_columns = {"sort_order": "Порядок", "name": "Категория"}
 
 class AccessoryBrandsView(ModelView):
     datamodel = SQLAInterface(AccessoryBrands)
 
-    columns = ["name"]
+    columns = ["sort_order", "name"]
     list_columns = add_columns = edit_columns = show_columns = columns
 
     exclude_list = ["products"]
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
 
-    label_columns = {"name": "Бренд аксессуара"}
+    label_columns = {"sort_order": "Порядок", "name": "Бренд аксессуара"}
 
 class DeviceBrandsView(ModelView):
     datamodel = SQLAInterface(DeviceBrands)
 
-    columns = ["name"]
+    columns = ["sort_order", "name"]
     list_columns = add_columns = edit_columns = show_columns = columns
 
     exclude_list = ["device_models"]
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
 
-    label_columns = {"name": "Бренд устройства"}
+    label_columns = {"sort_order": "Порядок", "name": "Бренд устройства"}
 
 class DeviceModelsView(ModelView):
     datamodel = SQLAInterface(DeviceModels)
 
-    columns = ["name", "device_brand"]
+    columns = ["sort_order", "name", "device_brand"]
     list_columns = add_columns = edit_columns = show_columns = columns
 
     exclude_list = ["products"]
     add_exclude_columns = search_exclude_columns = edit_exclude_columns = show_exclude_columns = exclude_list
 
     label_columns = {
+        "sort_order": "Порядок",
         "name": "Модель устройства",
         "device_brand": "Бренд устройства"
     }

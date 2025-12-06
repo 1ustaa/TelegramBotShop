@@ -74,7 +74,7 @@ async def categories_kb(page=0, page_size: int = MAX_PAGE_SIZE):
             select(Categories)
             .offset(page * page_size)
             .limit(page_size)
-            .order_by(Categories.name)
+            .order_by(Categories.sort_order, Categories.name)
         )
         categories = result.scalars().all()
 
@@ -108,7 +108,7 @@ async def accessory_brands_kb(category_id: int = None, page=0, page_size: int = 
                 Products.is_active == True
             )
             .distinct()
-            .order_by(AccessoryBrands.name)
+            .order_by(AccessoryBrands.sort_order, AccessoryBrands.name)
         )
         
         brands_count = await session.execute(
@@ -151,7 +151,7 @@ async def device_brands_kb(category_id: int, accessory_brand_id: int, page=0, pa
                 Products.is_active == True
             )
             .distinct()
-            .order_by(DeviceBrands.name)
+            .order_by(DeviceBrands.sort_order, DeviceBrands.name)
         )
         
         brands_count = await session.execute(
@@ -205,7 +205,7 @@ async def device_models_kb(
         if device_brand_id:
             stmt = stmt.where(DeviceModels.device_brand_id == device_brand_id)
         
-        stmt = stmt.distinct().order_by(DeviceModels.name)
+        stmt = stmt.distinct().order_by(DeviceModels.sort_order, DeviceModels.name)
         
         models_count = await session.execute(
             select(func.count(func.distinct(DeviceModels.id)))
