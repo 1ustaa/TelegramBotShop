@@ -4,10 +4,11 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram import Bot, Dispatcher
 from handlers import bot_mesages, user_commands
 from callbacks import callbacks
-
+from data.model import init_models
 from config_reader import config
 
 async def main():
+    await init_models()
     logging.basicConfig(level=logging.INFO)
     bot = Bot(token=config.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode="HTML"))
     dp = Dispatcher()
@@ -23,3 +24,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+

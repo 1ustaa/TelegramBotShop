@@ -295,3 +295,7 @@ class OrderStatuses(Base):
 
     def __repr__(self):
         return self.name
+
+async def init_models():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

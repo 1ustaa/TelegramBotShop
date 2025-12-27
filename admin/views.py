@@ -453,7 +453,7 @@ class ExcelUploadView(BaseView):
             if file:
                 if file.filename == "":
                     flash("Файл не выбран.", "danger")
-                    return redirect(request.url)
+                    return redirect(url_for("ExcelUploadView.upload"))
                 if allowed_file(file):
                     filename = secure_filename(file.filename)
                     file_path = os.path.join(self.upload_folder, filename)
@@ -480,10 +480,10 @@ class ExcelUploadView(BaseView):
                         if os.path.exists(file_path):
                             os.remove(file_path)
                     
-                    return redirect(request.url)
+                    return redirect(url_for("ExcelUploadView.upload"))
                 else:
                     flash("Недопустимый формат файла. Разрешены: xlsx, xls", "danger")
-                    return redirect(request.url)
+                    return redirect(url_for("ExcelUploadView.upload"))
 
         return self.render_template("excel_upload.html")
 
